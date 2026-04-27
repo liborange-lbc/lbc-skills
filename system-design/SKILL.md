@@ -1,13 +1,13 @@
 ---
 name: system-design
 description: >-
-  Generate and review system design documents (系统设计/系分) for Java projects.
-  Use when user asks to create system design, 写系分, 系统设计, 技术方案, or review
-  an existing design doc. Closed-loop workflow with multi-agent review.
-  Auto-generates system knowledge base and logs full execution trace.
+  Full development lifecycle skill: requirement decomposition → system design →
+  coding → testing → code review → delivery reports. Use when user asks to
+  写系分, 系统设计, 技术方案, 详细设计, 开发全流程, or review an existing design doc.
+  Closed-loop workflow with multi-agent review at design and code phases.
 ---
 
-# System Design — 系分生成与评审
+# 开发全流程 — 从需求到交付
 
 ## Mindset — 执行态度（贯穿全流程）
 
@@ -25,7 +25,8 @@ description: >-
 
 ## Trigger
 
-- 写系分 / 系统设计 / 技术方案 / 详细设计
+- 写系分 / 系统设计 / 技术方案 / 详细设计 / 开发全流程
+- 帮我实现 / 开发这个功能 / 实现这个 PRD / 编码这个需求
 - 帮我评审系分 / review this design
 
 ## Configuration
@@ -54,46 +55,62 @@ KNOWLEDGE_BASES: []             # 外部文档源，格式如下：
 
 ## Directory Structure
 
-所有产出存放在项目根目录下的 `./ai-coding-doc/`：
+所有产出存放在项目根目录下的 `./ai-coding-doc/`。
+
+> **文件命名规则**：所有产出文件使用**中文文件名**，便于阅读和查找。
 
 ```
 ./ai-coding-doc/
 ├── system-knowledge/                    # 系统知识目录（全局，跨需求共享）
-│   ├── architecture-overview.md         #   架构总览（分层、模块、部署拓扑）
-│   ├── middleware-inventory.md          #   中间件明细（Redis/MQ/ES 等用法）
-│   ├── api-constraints.md              #   API 约束（命名、版本、鉴权、限流规范）
-│   ├── domain-model.md                 #   领域模型（核心实体、聚合根、关系图）
-│   ├── coding-conventions.md           #   编码规范（异常处理、日志、分层调用规则）
-│   ├── data-dictionary.md              #   数据字典（核心表结构、索引、枚举值）
-│   └── infra-config.md                 #   基础设施配置（环境、配置中心、部署方式）
+│   ├── 架构总览.md                       #   分层、模块、部署拓扑
+│   ├── 中间件明细.md                     #   Redis/MQ/ES 等用法
+│   ├── API约束.md                       #   命名、版本、鉴权、限流规范
+│   ├── 领域模型.md                       #   核心实体、聚合根、关系图
+│   ├── 编码规范.md                       #   异常处理、日志、分层调用规则
+│   ├── 数据字典.md                       #   核心表结构、索引、枚举值
+│   └── 基础设施配置.md                   #   环境、配置中心、部署方式
 │
 ├── biz-knowledge/                       # 业务知识目录（人工维护）
-│   ├── biz-map.md                       #   【必须】业务知识导引（文档链接+使用说明）
+│   ├── 业务知识导引.md                   #   【必须】文档链接+使用说明
 │   └── *.md                             #   业务知识文档（按主题组织）
 │
 ├── requirements/                        # 需求迭代目录（按需求独立保存）
 │   └── {YYYY-MM-DD}-{feature-name}/    #   每个需求一个目录
-│       ├── requirement-checklist.md     #     需求确认清单
-│       ├── code-reading-report.md       #     代码阅读报告
-│       ├── design-doc.md               #     系分文档
-│       ├── review-report.md            #     评审报告
+│       ├── 需求确认清单.md               #     Phase 1a 产出
+│       ├── 功能拆解清单.md               #     Phase 1b 产出（细粒度子项）
+│       ├── 代码阅读报告.md               #     Phase 2a 产出
+│       ├── 细分设计.md                   #     Phase 3 产出
+│       ├── 设计评审报告.md               #     Phase 4 产出
+│       ├── src/                         #     编码产出目录
+│       ├── test/                        #     测试用例目录
+│       ├── 代码评审报告.md               #     Phase 8 产出
+│       ├── 开发报告.md                   #     Phase 9a 产出
+│       ├── 验收报告.md                   #     Phase 9b 产出
 │       └── log/                         #     执行日志目录
-│           ├── phase0-knowledge-bootstrap.md
-│           ├── phase1-requirement-interview.md
-│           ├── phase2a-code-reading.md
-│           ├── phase2b-knowledge-lookup.md
-│           ├── phase3-design.md
-│           ├── phase4-agent-{role}.md   #     每个评审 Agent 独立文件
-│           ├── phase5-iteration-{n}.md
-│           ├── execution-summary.md     #     执行路径汇总
-│           └── execution-flowchart.md   #     全局流程图（Mermaid）
+│           ├── phase0-系统知识.md
+│           ├── phase1-需求面试.md
+│           ├── phase2a-代码阅读.md
+│           ├── phase2b-知识查阅.md
+│           ├── phase3-细分设计.md
+│           ├── phase4-{专家角色}.md      #     设计评审 Agent 日志
+│           ├── phase5-迭代修正-{n}.md
+│           ├── phase6-编码实现.md
+│           ├── phase7-测试编写.md
+│           ├── phase8-{专家角色}.md      #     代码评审 Agent 日志
+│           ├── phase8-迭代修正-{n}.md
+│           ├── phase9-交付报告.md
+│           ├── 执行路径汇总.md           #     全局索引
+│           └── 执行流程图.md             #     Mermaid 流程图
 │
 └── reference/                           # 参考文档（模板、checklist 等）
-    ├── design-template.md               #   系分文档模板
-    ├── requirement-checklist.md         #   需求面试清单
-    ├── review-checklists.md             #   评审 checklist
-    ├── code-reading-guide.md            #   六步下钻法指南
-    └── knowledge-lookup-rules.md        #   知识库查阅规则
+    ├── 设计文档模板.md
+    ├── 需求面试清单.md
+    ├── 评审检查清单.md                   #   设计+代码评审 checklist
+    ├── 六步下钻法指南.md
+    ├── 知识库查阅规则.md
+    ├── 编码实现指南.md
+    ├── 测试用例编写指南.md
+    └── 交付报告模板.md
 ```
 
 ### 初始化
@@ -108,19 +125,22 @@ KNOWLEDGE_BASES: []             # 外部文档源，格式如下：
 
 | 场景 | 该看什么 | 路径 |
 |------|----------|------|
-| 了解系统全貌 | 架构总览 | `system-knowledge/architecture-overview.md` |
-| 确认中间件用法 | 中间件明细 | `system-knowledge/middleware-inventory.md` |
-| 设计新 API 前 | API 约束 | `system-knowledge/api-constraints.md` |
-| 理解数据模型 | 领域模型 | `system-knowledge/domain-model.md` |
-| 确认编码规范 | 编码规范 | `system-knowledge/coding-conventions.md` |
-| 查表结构/字段 | 数据字典 | `system-knowledge/data-dictionary.md` |
-| 查环境/部署配置 | 基础设施配置 | `system-knowledge/infra-config.md` |
-| 了解业务背景/规则 | 业务知识导引 | `biz-knowledge/biz-map.md` |
-| 写系分文档 | 文档模板 | `reference/design-template.md` |
-| 面试需求 | 面试清单 | `reference/requirement-checklist.md` |
-| 评审系分 | 评审 checklist | `reference/review-checklists.md` |
-| 阅读代码 | 六步下钻法 | `reference/code-reading-guide.md` |
-| 查阅知识库 | 查阅规则 | `reference/knowledge-lookup-rules.md` |
+| 了解系统全貌 | 架构总览 | `system-knowledge/架构总览.md` |
+| 确认中间件用法 | 中间件明细 | `system-knowledge/中间件明细.md` |
+| 设计新 API 前 | API 约束 | `system-knowledge/API约束.md` |
+| 理解数据模型 | 领域模型 | `system-knowledge/领域模型.md` |
+| 确认编码规范 | 编码规范 | `system-knowledge/编码规范.md` |
+| 查表结构/字段 | 数据字典 | `system-knowledge/数据字典.md` |
+| 查环境/部署配置 | 基础设施配置 | `system-knowledge/基础设施配置.md` |
+| 了解业务背景/规则 | 业务知识导引 | `biz-knowledge/业务知识导引.md` |
+| 写系分文档 | 文档模板 | `reference/设计文档模板.md` |
+| 面试需求 | 面试清单 | `reference/需求面试清单.md` |
+| 评审系分/代码 | 评审 checklist | `reference/评审检查清单.md` |
+| 阅读代码 | 六步下钻法 | `reference/六步下钻法指南.md` |
+| 查阅知识库 | 查阅规则 | `reference/知识库查阅规则.md` |
+| 编码实现 | 编码指南 | `reference/编码实现指南.md` |
+| 编写测试 | 测试指南 | `reference/测试用例编写指南.md` |
+| 生成报告 | 报告模板 | `reference/交付报告模板.md` |
 | 查历史需求 | 需求目录 | `requirements/` |
 | 查执行过程 | 执行日志 | `requirements/{date}-{name}/log/` |
 
@@ -129,58 +149,115 @@ KNOWLEDGE_BASES: []             # 外部文档源，格式如下：
 ## Workflow Overview
 
 ```
-Phase 0 系统知识检查/生成
-  → Phase 1 需求面试
-  → Phase 2 知识采集
-  → Phase 3 方案设计
-  → Phase 4 多Agent评审
-  → [不通过] → Phase 5 分级修正 → Phase 4 再评审（最多 3 轮）
-  → [通过: 0 CRITICAL + 0 HIGH] → Phase 6 日志汇总 → Done
+┌─────────────────────────────────────────────────────────┐
+│ Stage 0: 启动确认                                       │
+│                                                         │
+│  Phase 0.0  确认目标项目目录 + PRD 路径                    │
+│                                                         │
+├─────────────────────────────────────────────────────────┤
+│ Stage 1: 设计阶段                                       │
+│                                                         │
+│  Phase 0  系统知识检查/生成                               │
+│    → Phase 1  需求面试 + 功能拆解 + 复用映射               │
+│    → Phase 2  知识采集（2a || 2b 可并行）                  │
+│    → Phase 3  细分设计                                   │
+│    → Phase 4  设计评审（2 专家）                          │
+│    → [不通过] → Phase 5 分级修正 → Phase 4（最多 3 轮）    │
+│    → [通过: 0 CRITICAL + 0 HIGH]                        │
+│                                                         │
+├─────────────────────────────────────────────────────────┤
+│ Stage 2: 实现阶段                                       │
+│                                                         │
+│  Phase 6  编码实现                                       │
+│    → Phase 7  测试用例编写                               │
+│                                                         │
+├─────────────────────────────────────────────────────────┤
+│ Stage 3: 质量保障                                       │
+│                                                         │
+│  Phase 8  代码与测试评审（3 专家）                         │
+│    → [不通过] → 修正 → Phase 8（最多 3 轮）               │
+│    → [通过: 0 CRITICAL + 0 HIGH]                        │
+│                                                         │
+├─────────────────────────────────────────────────────────┤
+│ Stage 4: 交付阶段                                       │
+│                                                         │
+│  Phase 9   开发报告 + 验收报告                            │
+│    → Phase 10  日志汇总与流程图 → Done                    │
+│                                                         │
+└─────────────────────────────────────────────────────────┘
 ```
 
-如果用户已有系分文档只需评审：**直接跳到 Phase 4**（但仍先执行 Phase 0 确保系统知识完备）。
+### Phase 依赖关系（严格遵守）
+
+```
+P0.0 ──► P0 ──► P1 ──► P2a ──► P3 ──► P4 ──► P5(if fail) ──► P4
+                  │       ║
+                  └──► P2b ╝  (2a/2b 可并行，但都必须在 P1 之后)
+P4(pass) ──► P6 ──► P7 ──► P8 ──► P8fix(if fail) ──► P8
+P8(pass) ──► P9 ──► P10
+```
+
+**硬性规则**：
+- Phase 0 **必须**完成且确认后才能启动 Phase 1+
+- Phase 0 和 Phase 2 **不能**并行（Phase 2 依赖 Phase 0 的系统知识产出）
+- Phase 2a 和 2b **可以**并行（互不依赖）
+
+如果用户已有系分文档只需评审：**直接跳到 Phase 4**（但仍先执行 Phase 0.0 + Phase 0 确保系统知识完备）。
+
+如果用户只需编码+测试（设计已完成）：**直接跳到 Phase 6**（但仍先执行 Phase 0.0）。
 
 ---
 
 ## Execution Logging（贯穿全流程）
 
-**每个 Phase 都必须写入执行日志**。日志是系分过程的可追溯记录。
+日志是开发过程的可追溯记录。详细规范 → [reference/执行日志规范.md](reference/执行日志规范.md)
 
-详细规范 → [reference/execution-logging-guide.md](reference/execution-logging-guide.md)
+### 日志分工原则
 
-### 日志格式
+- **Subagent 日志**：每个 subagent 写入独立文件（如 `phase4-agent-completeness.md`），包含完整执行过程
+- **主流程日志**：只在阶段切换时写简要记录（开始/结束/关键结论），不重复 subagent 的详细内容
+- **最终汇总**：Phase 10 统一读取所有日志文件，生成 execution-summary.md
 
-每个日志文件使用统一格式：
+### Subagent 产出规则
 
-```markdown
-# Phase N: {阶段名称}
+**大型产出物（设计文档等）必须分阶段写入文件**，而非最后一次性写入：
+1. 先写骨架（章节标题），确保文件存在
+2. 逐章节追加内容
+3. 这样即使 subagent 中途失败，已完成的章节不会丢失
 
-> 开始时间: {timestamp}
-> 结束时间: {timestamp}
-> 状态: 进行中 | 完成 | 跳过
-
-## Step N.1: {步骤名称}
-
-**决策点**: {为什么执行这一步 / 判断依据}
-**执行动作**: {具体做了什么}
-**引用材料**:
-- 文档: `{relative-path}` — {引用了什么内容}
-- 代码: `{file:line}` — {读取了什么}
-- 链接: {URL} — {获取了什么}
-**结论**: {得到了什么结果 / 产出了什么}
+**Subagent 超时预算**：单个 subagent 建议不超过 10 分钟。超过预期时间的产出物应拆分为多个并行 subagent。
 
 ---
-```
 
-### Subagent 日志
+# ═══════════════════════════════════════
+# Stage 0: 启动确认
+# ═══════════════════════════════════════
 
-每个 subagent 写入独立文件。文件名含角色标识（如 `phase4-agent-architect.md`）。Subagent 启动时将自身的 prompt 摘要、执行步骤、引用材料、发现结论全部写入对应日志文件。
+## Phase 0.0: 确认目标项目
 
-### 主流程日志转发
+**目标**：明确 PRD 路径和目标项目目录，避免在错误的项目上工作。
 
-主流程负责在每个 Phase 开始/结束时追加记录到对应日志文件。Subagent 返回后，主流程在自己的日志中记录 subagent 的关键结论和产出路径。
+> **CRITICAL**: PRD 所在目录和目标代码项目可能不在同一位置。必须先确认再开始。
+
+### 执行流程
+
+1. 用 AskUserQuestion 确认以下信息：
+   - **PRD/需求文档路径**：用户提供的需求文档在哪里
+   - **目标项目目录**：代码应该写在哪个项目下（如果与 PRD 不同目录，必须明确）
+   - **是否在已有项目上扩展**：新项目 vs 扩展现有项目
+
+2. 确认后，将目标项目目录作为后续所有操作的工作目录
+3. `./ai-coding-doc/` 目录创建在**目标项目**根目录下，而非 PRD 所在目录
+
+### 产出
+
+无文件产出，但在后续所有 Phase 的日志中记录确认的目标项目路径。
 
 ---
+
+# ═══════════════════════════════════════
+# Stage 1: 设计阶段
+# ═══════════════════════════════════════
 
 ## Phase 0: System Knowledge Bootstrap
 
@@ -207,7 +284,7 @@ Phase 0 系统知识检查/生成
    | `data-dictionary.md` | 核心表结构、字段说明、索引、数据量级 | Step 4 |
    | `infra-config.md` | 环境配置、配置中心、feature flag、CI/CD 流程 | Step 6 |
 
-   六步下钻法详细指南 → [reference/code-reading-guide.md](reference/code-reading-guide.md)
+   六步下钻法详细指南 → [reference/六步下钻法指南.md](reference/六步下钻法指南.md)
 
 3. **生成完成后**，在日志中记录每个文件的生成/跳过/更新状态
 
@@ -217,31 +294,9 @@ Phase 0 系统知识检查/生成
 
    | 情况 | 处理 |
    |------|------|
-   | 文件存在 | **读取全部内容**，加载到当前上下文，作为后续 Phase 1~5 的业务背景。日志中记录"已加载 biz-map.md，包含 N 个业务知识条目" |
-   | 目录存在但缺少 biz-map.md | 提示用户：`biz-knowledge/ 目录已存在但缺少 biz-map.md 导引文件，请按模板创建后重新运行，或输入"跳过"继续（将仅依赖代码和系统知识）` |
-   | 目录不存在 | 提示用户：`未发现 ./ai-coding-doc/biz-knowledge/ 目录。如果有业务知识文档（PRD、业务规则、流程说明等），建议创建该目录并添加 biz-map.md 导引文件。输入"跳过"可继续，后续设计将仅依赖代码和系统知识` |
-
-   **biz-map.md 模板**（提示用户时附带）：
-
-   ```markdown
-   # 业务知识导引
-
-   > 本文件是业务知识的索引入口。列出所有业务知识文档及其使用场景。
-   > 文档放在 biz-knowledge/ 目录下，此处用相对路径引用。
-
-   | 文档 | 内容概要 | 适用场景 |
-   |------|----------|----------|
-   | [交易流程.md](交易流程.md) | 下单→支付→履约全流程 | 涉及交易链路的需求设计 |
-   | [权限模型.md](权限模型.md) | RBAC 角色与权限矩阵 | 涉及鉴权、数据隔离的设计 |
-   | [结算规则.md](结算规则.md) | T+1 结算、分账、退款规则 | 涉及资金流的需求设计 |
-
-   ## 外部文档链接
-
-   | 名称 | 链接 | 说明 |
-   |------|------|------|
-   | PRD 文档库 | {飞书/Confluence URL} | 产品需求文档 |
-   | 业务流程图 | {URL} | 核心业务流程 |
-   ```
+   | 文件存在 | **读取全部内容**，加载到当前上下文，作为后续阶段的业务背景。日志中记录"已加载 biz-map.md，包含 N 个业务知识条目" |
+   | 目录存在但缺少 biz-map.md | 提示用户：`biz-knowledge/ 目录已存在但缺少 biz-map.md 导引文件，请按模板创建后重新运行，或输入"跳过"继续` |
+   | 目录不存在 | 提示用户：`未发现 ./ai-coding-doc/biz-knowledge/ 目录。如果有业务知识文档，建议创建该目录并添加 biz-map.md。输入"跳过"可继续` |
 
 ### 日志输出
 
@@ -253,20 +308,80 @@ Phase 0 系统知识检查/生成
 
 ---
 
-## Phase 1: 需求面试
+## Phase 1: 需求面试 + 功能拆解
 
-**目标**：消除歧义。不清楚就不动手。
+**目标**：消除歧义，并将需求拆解为**细粒度功能子项清单**，为后续设计和验收提供逐项对照基准。
 
-用 AskUserQuestion 逐项确认，直到需求无歧义。产出**需求确认清单**，用户签字后才进 Phase 2。
+### 1a. 需求面试
 
-详细清单 → [reference/requirement-checklist.md](reference/requirement-checklist.md)
+用 AskUserQuestion 逐项确认，直到需求无歧义。产出**需求确认清单**，用户签字后继续。
+
+详细清单 → [reference/需求面试清单.md](reference/需求面试清单.md)
+
+### 1b. 功能拆解（CRITICAL — 后续所有阶段的锚点）
+
+在需求确认后，**必须**将需求拆解为细粒度的功能子项清单。这个清单是后续所有阶段的核心锚点：
+- Phase 4 设计评审：需求完整度专家逐项比对
+- Phase 9 验收报告：逐项确认实现和测试覆盖
+
+#### 拆解规则
+
+1. **穷举原则** — 每个功能点必须拆到**不可再分**的粒度。一个子项 = 一个可独立验证的行为
+2. **分类组织** — 按功能模块/业务域分组，每组内按操作流程排序
+3. **编号体系** — 使用 `FR-{模块缩写}-{序号}` 格式（如 `FR-ORDER-001`），方便后续引用
+4. **覆盖维度** — 每个功能子项必须覆盖：
+   - 正常流程（happy path）
+   - 异常/边界场景（空值、超限、并发、重复）
+   - 权限控制（谁能做、谁不能做）
+   - 数据变更（创建/修改/删除了什么数据）
+
+#### 产出格式
+
+```markdown
+# 功能拆解清单
+
+> 需求: {feature-name}
+> 拆解时间: {date}
+> 子项总数: N
+
+## 模块 A: {模块名}
+
+| 编号 | 功能子项 | 类型 | 优先级 | 备注 |
+|------|----------|------|--------|------|
+| FR-A-001 | {具体功能描述} | 正常流程 | P0 | |
+| FR-A-002 | {具体功能描述} | 异常处理 | P0 | |
+| FR-A-003 | {具体功能描述} | 权限控制 | P1 | |
+
+## 模块 B: {模块名}
+
+| 编号 | 功能子项 | 类型 | 优先级 | 备注 |
+|------|----------|------|--------|------|
+| FR-B-001 | ... | ... | ... | |
+```
+
+5. **用户确认** — 功能拆解清单必须展示给用户确认，确保无遗漏。用户确认后保存为 `功能拆解清单.md`
+
+### 1c. 复用映射（扩展已有项目时必做）
+
+如果是在已有项目上扩展（Phase 0.0 确认），在功能拆解完成后，对照 Phase 0 的系统知识和 Phase 2a 的代码阅读报告，标注每个 FR 子项的实现方式：
+
+| 实现方式 | 说明 | 示例 |
+|----------|------|------|
+| 新建 | 需要从零实现 | 新增 InvestmentPlan 模型 |
+| 复用 | 直接使用已有模块，无需改动 | 复用 Feishu 通知发送 |
+| 扩展 | 在已有模块上增加功能 | 扩展 assistant 的 tools |
+| 集成 | 读取已有模块的数据 | 读取 PortfolioSnapshot 计算偏离 |
+
+在 `功能拆解清单.md` 的表格中增加"实现方式"列。
 
 ### 日志输出
 
-写入 `log/phase1-requirement-interview.md`，记录：
+写入 `log/phase1-需求面试.md`，记录：
 - 每轮提问内容和用户回答
 - 歧义点及其澄清过程
 - 最终确认的需求清单
+- 功能拆解过程和用户确认结果
+- 复用映射结果（如适用）
 
 ---
 
@@ -280,7 +395,7 @@ Phase 0 系统知识检查/生成
 
 用 subagent 按六步下钻法阅读**本次需求涉及**的模块代码（Phase 0 是全局，这里是聚焦），产出**代码阅读报告**（依赖图、调用链、现有约束、数据模型、风险标记）。
 
-详细步骤 → [reference/code-reading-guide.md](reference/code-reading-guide.md)
+详细步骤 → [reference/六步下钻法指南.md](reference/六步下钻法指南.md)
 
 **与 Phase 0 的区别**：Phase 0 生成全局系统知识，Phase 2a 聚焦本次需求涉及的具体模块，深度更大、范围更窄。Phase 2a 可引用 Phase 0 的产出作为上下文。
 
@@ -293,11 +408,11 @@ Phase 0 系统知识检查/生成
 2. 文档与代码冲突时，**以代码为准**，标记差异
 3. 查不到时明确写出"未找到相关文档，以代码为准"，**不得编造**
 
-详细规则 → [reference/knowledge-lookup-rules.md](reference/knowledge-lookup-rules.md)
+详细规则 → [reference/知识库查阅规则.md](reference/知识库查阅规则.md)
 
 ### 2c. 模板获取
 
-从 TEMPLATE_URL 拉取系分模板。不可用时使用 `reference/design-template.md`。
+从 TEMPLATE_URL 拉取系分模板。不可用时使用 `reference/设计文档模板.md`。
 
 ### 日志输出
 
@@ -306,17 +421,20 @@ Phase 0 系统知识检查/生成
 
 ---
 
-## Phase 3: 方案设计
+## Phase 3: 细分设计
 
-**目标**：生成结构化、可评审的系分文档。
+**目标**：生成结构化、可评审的细分设计文档，覆盖 Phase 1b 功能拆解清单的**每一个子项**。
 
 ### 流程
 
 1. **先出骨架** — 只有章节标题，让用户确认再填充
 2. **填充内容** — 严格遵循下方架构约束，引用 `system-knowledge/` 中的全局上下文
-3. **保存文档** — 输出到 `./ai-coding-doc/requirements/{date}-{feature-name}/design-doc.md`
+3. **需求追溯** — 每个设计章节标注其对应的功能子项编号（FR-XXX），确保全覆盖
+4. **P2 功能处理** — P0/P1 功能必须完整设计；P2 功能只需写**扩展点说明**（预留什么接口/字段），不需完整实现方案
+5. **自检** — 填充完成后，逐条对照 `功能拆解清单.md`，确认每个 P0/P1 的 FR 子项都有对应设计。未覆盖的必须补充
+6. **保存文档** — 输出到 `./ai-coding-doc/requirements/{date}-{feature-name}/细分设计.md`
 
-文档模板与格式 → [reference/design-template.md](reference/design-template.md)
+文档模板与格式 → [reference/设计文档模板.md](reference/设计文档模板.md)
 
 ### Architecture Constraints（不遵循必出问题）
 
@@ -347,26 +465,53 @@ Phase 0 系统知识检查/生成
 - 骨架确认过程（用户反馈）
 - 每个章节填充时引用了哪些 system-knowledge 文件和代码
 - 架构约束逐项检查结果
+- 功能子项覆盖度统计（N/M 已覆盖）
 
 ---
 
-## Phase 4: 多 Agent 评审
+## Phase 4: 设计评审（2 专家）
 
-**目标**：从 5 个视角并行发现设计缺陷。
+**目标**：从需求完整度和架构安全性两个维度评审细分设计。
 
 ### 执行方式
 
-启动 **5 个并行 subagent**，每个读取完整系分文档 + 代码阅读报告 + 相关 system-knowledge 文件，按各自视角独立评审。
+启动 **2 个并行 subagent**，每个读取完整细分文档 + 功能拆解清单 + 代码阅读报告 + 相关 system-knowledge 文件，按各自视角独立评审。
 
 | Agent | 视角 | 核心关注 | 日志文件 |
 |-------|------|----------|----------|
-| 架构师 | 结构合理性 | 分层、耦合、扩展性、接口粒度、是否过度设计 | `log/phase4-agent-architect.md` |
-| 安全专家 | 安全漏洞 | 鉴权、注入、越权、脱敏、日志泄露 | `log/phase4-agent-security.md` |
-| 性能工程师 | 性能容量 | 索引、N+1、缓存策略、锁竞争、容量预估 | `log/phase4-agent-performance.md` |
-| 业务分析师 | 业务完整性 | 需求覆盖、边界场景、状态机、异常流程 | `log/phase4-agent-business.md` |
-| 代码考古学家 | 兼容性 | 接口契约、数据迁移、发布顺序、回滚方案 | `log/phase4-agent-archaeologist.md` |
+| 需求完整度专家 | 功能覆盖 | 逐项比对功能拆解清单，确认每个子项在设计中都有对应实现方案 | `log/phase4-agent-completeness.md` |
+| 架构安全专家 | 架构合理性 & 安全兼容 | 架构分层、安全漏洞、兼容性风险、与现有代码的容错能力 | `log/phase4-agent-architecture.md` |
 
-各 Agent 详细 checklist → [reference/review-checklists.md](reference/review-checklists.md)
+#### Agent 1: 需求完整度专家
+
+**核心职责**：拿着 `功能拆解清单.md` 的每一个功能子项（FR-XXX），逐条在 `细分设计.md` 中查找对应的设计内容。
+
+**职责边界**：此专家**只判断有/无覆盖**，不评判设计深度。"设计细节不够深"（如缺少校验规则）属于架构安全专家的职责。
+
+检查方式：
+1. 遍历功能拆解清单的每个子项
+2. 在设计文档中定位对应章节
+3. 判断设计是否**存在对应方案**（有章节/段落明确描述如何实现该功能）
+4. 标记未覆盖的子项
+
+输出要求：
+- 逐项列出覆盖状态：✅ 已覆盖 / ❌ 未覆盖
+- P0/P1 未覆盖 → **CRITICAL**
+- P2 未覆盖但无扩展点说明 → **MEDIUM**（P2 只需扩展点，不需完整设计）
+- P2 未覆盖但有扩展点说明 → **PASS**
+
+#### Agent 2: 架构安全专家
+
+**核心职责**：评估设计的架构合理性、设计完整性、安全性、以及与现有代码的兼容性。
+
+检查维度：
+1. **架构合理性** — 分层是否清晰、模块边界是否合理、是否过度设计、接口粒度
+2. **设计完整性** — 已覆盖的功能设计是否足够深入（校验规则是否具体、计算公式是否明确、错误处理是否完整、降级方案是否可执行）。注意：这与需求完整度专家的"有无覆盖"不同，这里检查的是"覆盖了但深度不够"
+3. **安全性** — 鉴权方案、注入风险（含 prompt 注入）、越权风险、敏感数据处理、日志泄露、速率限制
+4. **兼容性** — 新设计与现有代码的接口契约兼容、数据兼容、依赖兼容
+5. **容错能力** — 新逻辑对现有系统的影响、外部依赖降级策略、回滚方案
+
+各 Agent 详细 checklist → [reference/评审检查清单.md](reference/评审检查清单.md)
 
 ### 每个 Agent 的日志必须包含
 
@@ -380,18 +525,18 @@ Phase 0 系统知识检查/生成
 1. 收集所有 Agent 的发现
 2. 去重合并（同一问题不同角度提到的算一条）
 3. 按严重度排序：CRITICAL → HIGH → MEDIUM → LOW
-4. 生成评审报告，保存到 `requirements/{date}-{feature-name}/review-report.md`
+4. 生成评审报告，保存到 `requirements/{date}-{feature-name}/design-review-report.md`
 
 ### Pass Criteria（硬性门禁）
 
 | 条件 | 结果 |
 |------|------|
-| 0 CRITICAL **且** 0 HIGH | **PASS** — 评审通过 |
+| 0 CRITICAL **且** 0 HIGH | **PASS** — 评审通过，进入 Stage 2 |
 | 存在 CRITICAL 或 HIGH | **FAIL** — 进入 Phase 5 |
 
 ---
 
-## Phase 5: 迭代修正
+## Phase 5: 设计迭代修正
 
 1. 展示评审报告给用户
 2. **判定问题级别，决定回退深度**：
@@ -418,43 +563,301 @@ Phase 0 系统知识检查/生成
 
 ---
 
-## Phase 6: 日志汇总与流程图
+# ═══════════════════════════════════════
+# Stage 2: 实现阶段
+# ═══════════════════════════════════════
+
+## Phase 6: 编码实现
+
+**目标**：基于通过评审的细分设计文档，实现代码。
+
+### 执行流程
+
+1. **阅读设计文档** — 再次确认 `design-doc.md` 的最终版本
+2. **确认编码范围** — 与用户确认本次编码涉及的模块和文件
+3. **按功能子项编码** — 按 `requirement-breakdown.md` 的编号顺序实现，每完成一个子项标记进度
+4. **遵循编码规范** — 参照 `system-knowledge/coding-conventions.md` 中的项目编码规范
+5. **代码产出** — 代码直接写入项目源码目录（非 ai-coding-doc）
+
+### 编码约束
+
+- 严格按设计文档实现，不自行添加设计中未提及的功能
+- 新增代码遵循现有项目的包结构、命名规范、分层规则
+- 每个功能子项实现后，在代码注释或 commit message 中标注对应的 FR 编号
+
+详细指南 → [reference/编码实现指南.md](reference/编码实现指南.md)
+
+### 日志输出
+
+写入 `log/phase6-coding.md`，记录：
+- 每个功能子项的实现文件和关键代码位置
+- 实现过程中发现的设计文档遗漏或歧义（记录但不自行决策，需确认）
+- 编码完成度统计
+
+---
+
+## Phase 7: 测试用例编写
+
+**目标**：为编码产出编写测试用例，覆盖功能拆解清单的每个子项。
+
+### 执行流程
+
+1. **基于功能拆解清单编写测试** — 每个 FR 子项至少一个测试用例
+2. **测试分类**：
+   - **单元测试** — 核心业务逻辑、工具方法
+   - **集成测试** — API 端到端、数据库操作、中间件交互
+   - **边界测试** — 异常输入、并发场景、空值处理
+3. **运行测试** — 执行全部测试，记录通过/失败结果
+4. **修复失败** — 测试失败时先判断是代码 bug 还是测试写错，修复后重跑
+
+### 测试用例命名
+
+```
+test_{FR编号}_{场景描述}
+例: test_FR_ORDER_001_create_order_success
+例: test_FR_ORDER_002_create_order_duplicate_rejected
+```
+
+### 测试产出
+
+测试代码直接写入项目测试目录，同时在 `log/phase7-testing.md` 记录测试矩阵。
+
+详细指南 → [reference/测试用例编写指南.md](reference/测试用例编写指南.md)
+
+### 日志输出
+
+写入 `log/phase7-testing.md`，记录：
+- 测试用例矩阵（FR 编号 → 测试用例 → 测试类型 → 结果）
+- 测试覆盖率统计
+- 失败用例及修复过程
+
+---
+
+# ═══════════════════════════════════════
+# Stage 3: 质量保障
+# ═══════════════════════════════════════
+
+## Phase 8: 代码与测试评审（3 专家）
+
+**目标**：从代码规范、逻辑正确性、测试质量三个维度评审实现产出。
+
+### 执行方式
+
+启动 **3 个并行 subagent**，各自从不同维度评审代码和测试用例。
+
+| Agent | 视角 | 核心关注 | 日志文件 |
+|-------|------|----------|----------|
+| 代码规范专家 | 编码标准 | 语言规范、命名、格式、分层规则、安全编码实践 | `log/phase8-agent-standards.md` |
+| 逻辑正确性专家 | 功能实现 | 代码逻辑与设计文档一致性、边界处理、并发安全、资源管理 | `log/phase8-agent-logic.md` |
+| 测试质量专家 | 测试有效性 | 测试是否真正验证了系统功能、用例合理性、覆盖完整性 | `log/phase8-agent-testing.md` |
+
+#### Agent 1: 代码规范专家
+
+根据 `TECH_STACK.language` 自动加载对应的语言规范：
+
+**Java**:
+- 命名规范（类名 PascalCase、方法 camelCase、常量 UPPER_SNAKE）
+- 异常处理（不吞异常、不用 Exception 做流程控制、自定义异常继承体系）
+- 日志规范（参数化日志、日志级别使用、不打印敏感信息）
+- 线程安全（共享状态、锁使用、ThreadLocal 清理）
+- Spring 规范（Bean 注入方式、@Transactional 使用、配置外部化）
+- MyBatis 规范（#{}参数化、批量操作、N+1 查询）
+
+**Python**:
+- PEP 8 风格（命名、缩进、行长）
+- 类型注解（函数签名、返回值）
+- 异常处理（具体异常类型、上下文管理器）
+- 异步代码（async/await 正确使用、事件循环管理）
+
+**JavaScript/TypeScript**:
+- ESLint 规范（no-unused-vars、no-any、strict-null-checks）
+- 异步处理（Promise 链 vs async/await、错误边界）
+- 模块导入（路径规范、循环依赖检测）
+- React 规范（如适用：Hooks 规则、组件拆分、性能优化）
+
+**通用**:
+- 不能有硬编码的密钥、密码、token
+- 不能有 TODO/FIXME/HACK 未处理的标记
+- 不能有注释掉的代码块
+- 函数不超过 50 行，文件不超过 800 行
+- 圈复杂度不超过 10
+
+#### Agent 2: 逻辑正确性专家
+
+逐个功能子项（FR-XXX）检查：
+1. **设计一致性** — 代码实现是否与 `design-doc.md` 中的方案一致
+2. **边界处理** — 空值检查、越界处理、类型转换安全
+3. **并发安全** — 共享资源访问、锁竞争、幂等实现
+4. **资源管理** — 连接释放、流关闭、ThreadLocal 清理
+5. **错误处理** — 异常是否被正确捕获、传播、转换
+6. **数据一致性** — 事务范围、分布式事务处理、最终一致性保障
+
+#### Agent 3: 测试质量专家
+
+**核心职责**：确认测试用例是**真正在验证系统功能**，而非形式化的空壳测试。
+
+检查维度：
+1. **测试有效性** — 每个测试是否有**有意义的断言**（不只是 assertNotNull）
+2. **功能覆盖** — 比对 `requirement-breakdown.md`，每个 FR 子项是否有对应测试
+3. **场景合理性** — 测试数据是否贴近真实业务场景，而非随意构造
+4. **边界覆盖** — 是否覆盖了异常路径、边界值、并发场景
+5. **测试隔离** — 测试之间是否独立、是否有顺序依赖
+6. **Mock 合理性** — Mock 的行为是否与真实依赖一致，是否过度 Mock
+
+### 汇总规则
+
+同 Phase 4：收集 → 去重 → 排序 → 生成 `code-review-report.md`
+
+### Pass Criteria（硬性门禁）
+
+| 条件 | 结果 |
+|------|------|
+| 0 CRITICAL **且** 0 HIGH | **PASS** — 进入 Stage 4 |
+| 存在 CRITICAL 或 HIGH | **FAIL** — 修正后重跑 Phase 8（最多 3 轮） |
+
+### 迭代修正
+
+与 Phase 5 类似的分级修复策略：
+1. 局部修复（具体函数/测试用例的问题）→ 重跑 Phase 8
+2. 结构重做（实现方案有根本问题）→ 回退 Phase 6 重新编码
+3. 最多 3 轮，残留项列出让用户决定
+
+### 日志输出
+
+- `log/phase8-agent-standards.md` — 代码规范专家评审日志
+- `log/phase8-agent-logic.md` — 逻辑正确性专家评审日志
+- `log/phase8-agent-testing.md` — 测试质量专家评审日志
+- `log/phase8-iteration-{n}.md` — 迭代修正日志（如有）
+
+---
+
+# ═══════════════════════════════════════
+# Stage 4: 交付阶段
+# ═══════════════════════════════════════
+
+## Phase 9: 开发报告 + 验收报告
+
+**目标**：生成完整的开发交付文档，包含需求实现总结和测试验收记录。
+
+### 9a. 开发报告
+
+产出 `dev-report.md`，内容包括：
+
+```markdown
+# {Feature Name} 开发报告
+
+## 1. 需求概述
+- 业务背景（简述）
+- 需求目标
+
+## 2. 功能实现清单
+
+| FR 编号 | 功能描述 | 实现状态 | 关键实现文件 | 备注 |
+|---------|----------|----------|-------------|------|
+| FR-A-001 | ... | ✅ 已实现 | XxxService.java | |
+| FR-A-002 | ... | ✅ 已实现 | XxxController.java | |
+
+## 3. 技术方案摘要
+- 架构变更（如有）
+- 新增/修改的接口列表
+- 数据模型变更
+- 中间件变更
+
+## 4. 风险项与遗留问题
+| 风险/遗留 | 影响 | 处理计划 |
+|-----------|------|----------|
+
+## 5. 发布注意事项
+- 发布顺序
+- 配置变更
+- 数据迁移（如有）
+```
+
+### 9b. 验收报告
+
+产出 `acceptance-report.md`，内容包括：
+
+```markdown
+# {Feature Name} 验收报告
+
+## 1. 验收范围
+基于功能拆解清单（requirement-breakdown.md），共 N 个功能子项。
+
+## 2. 测试验收矩阵
+
+| FR 编号 | 功能描述 | 测试用例 | 测试类型 | 结果 | 验证说明 |
+|---------|----------|----------|----------|------|----------|
+| FR-A-001 | 创建订单 | test_FR_A_001_create_order_success | 集成 | ✅ PASS | 验证了订单创建流程、数据持久化、返回值正确性 |
+| FR-A-001 | 创建订单 | test_FR_A_001_create_order_duplicate | 集成 | ✅ PASS | 验证了幂等机制，重复创建返回已有订单 |
+| FR-A-002 | 订单查询 | test_FR_A_002_query_order_by_id | 单元 | ✅ PASS | 验证了按 ID 查询的正确性 |
+
+## 3. 测试有效性审计
+
+> 以下审计确认每个测试用例**确实在验证**其声称的系统功能。
+
+| 测试用例 | 验证的系统行为 | 有效性判定 | 理由 |
+|----------|---------------|-----------|------|
+| test_FR_A_001_create_order_success | 订单创建并持久化 | ✅ 有效 | 断言了数据库记录存在、字段值正确、返回 HTTP 201 |
+| test_FR_A_002_query_order_by_id | 按 ID 查询订单 | ⚠️ 待改进 | 仅断言了非空，未验证字段值 |
+
+## 4. 验收结论
+
+- 功能子项覆盖率: N/M (xx%)
+- 测试通过率: N/M (xx%)
+- 测试有效性: N/M (xx%)
+- 未覆盖子项: [列表]
+- 验收结论: 通过 / 有条件通过 / 不通过
+```
+
+详细模板 → [reference/交付报告模板.md](reference/交付报告模板.md)
+
+### 日志输出
+
+写入 `log/phase9-delivery.md`，记录报告生成过程。
+
+---
+
+## Phase 10: 日志汇总与流程图
 
 **目标**：将分散在各文件的执行日志汇总为可视化的执行路径。
 
-### 6a. 执行路径汇总
+### 10a. 执行路径汇总
 
 生成 `log/execution-summary.md`，格式：
 
 ```markdown
-# 系分执行路径汇总
+# 开发全流程执行路径汇总
 
 > 需求: {feature-name}
-> 总耗时: Phase 0 开始 → Phase 5/6 结束
-> 迭代轮数: N
+> 总耗时: Phase 0 开始 → Phase 10 结束
+> 设计迭代轮数: N
+> 代码评审迭代轮数: M
 
 ## 执行时间线
 
 | 阶段 | 状态 | 关键产出 | 详细日志 |
 |------|------|----------|----------|
 | Phase 0: 系统知识检查 | 完成 | 7 文件就绪 | [→ 详情](phase0-knowledge-bootstrap.md) |
-| Phase 1: 需求面试 | 完成 | 需求确认清单 | [→ 详情](phase1-requirement-interview.md) |
-| Phase 2a: 代码阅读 | 完成 | 代码阅读报告 | [→ 详情](phase2a-code-reading.md) |
-| Phase 2b: 知识查阅 | 完成 | N 条引用 | [→ 详情](phase2b-knowledge-lookup.md) |
-| Phase 3: 方案设计 | 完成 | 系分文档 | [→ 详情](phase3-design.md) |
-| Phase 4: 多Agent评审 (R1) | FAIL | 2C/3H/5M | [架构师](phase4-agent-architect.md) [安全](phase4-agent-security.md) ... |
-| Phase 5: 迭代修正 (R1) | 完成 | 修复 2C+3H | [→ 详情](phase5-iteration-1.md) |
-| Phase 4: 多Agent评审 (R2) | PASS | 0C/0H/3M | [架构师](phase4-agent-architect.md) [安全](phase4-agent-security.md) ... |
-| Phase 6: 日志汇总 | 完成 | 本文件 | — |
+| Phase 1: 需求面试+功能拆解 | 完成 | 需求清单 + N 个功能子项 | [→ 详情](phase1-requirement-interview.md) |
+| Phase 2: 知识采集 | 完成 | 代码阅读报告 | [→ 详情](phase2a-code-reading.md) |
+| Phase 3: 细分设计 | 完成 | 设计文档 | [→ 详情](phase3-design.md) |
+| Phase 4: 设计评审 (R1) | FAIL | 2C/1H | [完整度](phase4-agent-completeness.md) [架构](phase4-agent-architecture.md) |
+| Phase 5: 设计修正 (R1) | 完成 | 修复 2C+1H | [→ 详情](phase5-iteration-1.md) |
+| Phase 4: 设计评审 (R2) | PASS | 0C/0H | ... |
+| Phase 6: 编码实现 | 完成 | N 个文件 | [→ 详情](phase6-coding.md) |
+| Phase 7: 测试编写 | 完成 | N 个测试用例 | [→ 详情](phase7-testing.md) |
+| Phase 8: 代码评审 (R1) | PASS | 0C/0H | [规范](phase8-agent-standards.md) [逻辑](phase8-agent-logic.md) [测试](phase8-agent-testing.md) |
+| Phase 9: 交付报告 | 完成 | 开发报告 + 验收报告 | [→ 详情](phase9-delivery.md) |
+| Phase 10: 日志汇总 | 完成 | 本文件 | — |
 
 ## 关键决策点
 
 1. **Phase 0**: {决策描述} — {理由}
-2. **Phase 3**: {骨架调整} — {用户反馈}
+2. **Phase 1**: {功能拆解决策} — {用户反馈}
 3. **Phase 5**: {回退深度选择} — {判定理由}
 ```
 
-### 6b. 全局执行流程图
+### 10b. 全局执行流程图
 
 生成 `log/execution-flowchart.md`，使用 Mermaid flowchart 语法：
 
@@ -463,32 +866,38 @@ Phase 0 系统知识检查/生成
 
 \`\`\`mermaid
 flowchart TD
-    Start([开始]) --> P0[Phase 0: 系统知识检查]
-    P0 -->|知识完备| P0_OK[7 文件就绪]
-    P0 -->|知识缺失| P0_GEN[六步下钻生成]
-    P0_GEN --> P0_OK
+    Start([开始]) --> P0[Phase 0: 系统知识]
 
-    P0_OK --> P1[Phase 1: 需求面试]
-    P1 -->|N轮问答| P1_OK[需求确认清单]
+    subgraph Stage1[设计阶段]
+        P0 --> P1[Phase 1: 需求面试+功能拆解]
+        P1 --> P2[Phase 2: 知识采集]
+        P2 --> P3[Phase 3: 细分设计]
+        P3 --> P4{Phase 4: 设计评审}
+        P4 -->|PASS| S2
+        P4 -->|FAIL| P5[Phase 5: 设计修正]
+        P5 -->|局部修复| P4
+        P5 -->|架构级| P3
+        P5 -->|需求错误| P1
+    end
 
-    P1_OK --> P2A[Phase 2a: 代码阅读]
-    P1_OK --> P2B[Phase 2b: 知识查阅]
-    P2A --> P2_OK[知识采集完成]
-    P2B --> P2_OK
+    subgraph Stage2[实现阶段]
+        S2[ ] --> P6[Phase 6: 编码实现]
+        P6 --> P7[Phase 7: 测试编写]
+    end
 
-    P2_OK --> P3[Phase 3: 方案设计]
-    P3 -->|骨架确认| P3_FILL[填充内容]
-    P3_FILL --> P3_OK[系分文档]
+    subgraph Stage3[质量保障]
+        P7 --> P8{Phase 8: 代码评审}
+        P8 -->|PASS| S4
+        P8 -->|FAIL| P8Fix[修正]
+        P8Fix --> P8
+    end
 
-    P3_OK --> P4{Phase 4: 多Agent评审}
-    P4 -->|PASS: 0C+0H| P6[Phase 6: 日志汇总]
-    P4 -->|FAIL| P5[Phase 5: 迭代修正]
+    subgraph Stage4[交付阶段]
+        S4[ ] --> P9[Phase 9: 开发+验收报告]
+        P9 --> P10[Phase 10: 日志汇总]
+    end
 
-    P5 -->|局部修复| P4
-    P5 -->|架构级| P3
-    P5 -->|需求错误| P1
-
-    P6 --> Done([完成])
+    P10 --> Done([完成])
 \`\`\`
 ```
 
@@ -502,18 +911,26 @@ flowchart TD
 ./ai-coding-doc/
 ├── system-knowledge/           # 全局系统知识（7 个文件）
 ├── requirements/{date}-{name}/
-│   ├── requirement-checklist.md
-│   ├── code-reading-report.md
-│   ├── design-doc.md
-│   ├── review-report.md
-│   └── log/                    # 完整执行日志
+│   ├── requirement-checklist.md     # 需求确认清单
+│   ├── requirement-breakdown.md     # 功能拆解清单（细粒度子项）
+│   ├── code-reading-report.md       # 代码阅读报告
+│   ├── design-doc.md                # 细分设计文档
+│   ├── design-review-report.md      # 设计评审报告
+│   ├── code-review-report.md        # 代码评审报告
+│   ├── dev-report.md                # 开发报告
+│   ├── acceptance-report.md         # 验收报告
+│   └── log/                         # 完整执行日志
 │       ├── phase0-*.md
 │       ├── phase1-*.md
-│       ├── phase2a-*.md
-│       ├── phase2b-*.md
+│       ├── phase2a-*.md, phase2b-*.md
 │       ├── phase3-*.md
-│       ├── phase4-agent-*.md   # 5 个评审 Agent 各一个
+│       ├── phase4-agent-{completeness,architecture}.md  # 2 个设计评审 Agent
 │       ├── phase5-iteration-*.md
+│       ├── phase6-coding.md
+│       ├── phase7-testing.md
+│       ├── phase8-agent-{standards,logic,testing}.md    # 3 个代码评审 Agent
+│       ├── phase8-iteration-*.md
+│       ├── phase9-delivery.md
 │       ├── execution-summary.md
 │       └── execution-flowchart.md
 └── reference/                  # 模板和参考文档
@@ -523,14 +940,13 @@ flowchart TD
 
 ## Design Principles（设计此 skill 的底层逻辑）
 
-来自 OpenAI Harness Engineering + Anthropic Claude Code Best Practices：
-
-1. **上下文是最稀缺的资源** — 代码阅读和知识查阅用 subagent 执行，不污染主上下文
+1. **上下文是最稀缺的资源** — 代码阅读和评审用 subagent 执行，不污染主上下文
 2. **不给验证手段就不可靠** — 每个阶段都有明确的产出和检查标准
 3. **约束前置而非事后检查** — 架构 MUST/MUST NOT 在生成时就遵循，而非只在评审时才发现
-4. **多视角胜过单视角深入** — 5 个角色并行评审覆盖面远大于 1 个全能评审员
-5. **闭环迭代而非一次交付** — 生成→评审→修改→再评审，直到通过门禁
-6. **骨架确认后再填充** — 避免方向错误后大量返工（对应 Anthropic 的 Explore→Plan→Implement 原则）
+4. **需求锚定全流程** — 功能拆解清单贯穿设计→编码→测试→验收，确保无遗漏
+5. **闭环迭代而非一次交付** — 设计和代码各有独立的评审-修正循环
+6. **骨架确认后再填充** — 避免方向错误后大量返工
 7. **代码为准，文档为辅** — 知识冲突时代码是 single source of truth
 8. **系统知识复用** — 全局知识只生成一次，跨需求共享，增量更新
-9. **过程可追溯** — 每个决策点、引用来源、执行步骤全部留痕，支持复盘和审计
+9. **过程可追溯** — 每个决策点、引用来源、执行步骤全部留痕
+10. **交付可验证** — 验收报告不只记录通过率，还审计测试有效性
