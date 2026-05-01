@@ -31,17 +31,6 @@ const STATUS_COLORS = {
   iterating: { fill: '#FFF3E0', stroke: '#FF9800' },
 };
 
-// 连线标注（文档驱动交接）
-const EDGE_LABELS = [
-  '需求清单.md',
-  '代码阅读报告+知识摘要',
-  '系分文档+追踪矩阵',
-  '系分文档(已审)',
-  '代码',
-  '代码(已审)',
-  '测试报告',
-];
-
 // ============ 工具函数 ============
 function formatDuration(seconds) {
   if (seconds == null) return '';
@@ -224,7 +213,7 @@ function buildSingleNode(phase, x, y, isDesignMode) {
   const tooltip = principle ? `${principle.label} — ${principle.desc}` : '';
 
   const dur = formatDuration(phase.duration_seconds);
-  const durText = dur ? `<text class="node-duration" x="${NODE_WIDTH / 2}" y="${NODE_HEIGHT + 14}" text-anchor="middle" font-size="10" fill="#57606a">${dur}</text>` : '';
+  const bottomText = dur || phase.agent || '';
 
   return `
     <g class="phase-node status-${phase.status}" data-phase="${phase.id}" transform="translate(${x}, ${y})">
@@ -232,8 +221,7 @@ function buildSingleNode(phase, x, y, isDesignMode) {
             fill="${colors.fill}" stroke="${colors.stroke}"/>
       <text class="node-id" x="${NODE_WIDTH / 2}" y="16" text-anchor="middle">${phase.id}</text>
       <text class="node-name" x="${NODE_WIDTH / 2}" y="34" text-anchor="middle">${phase.name}</text>
-      <text class="node-agent" x="${NODE_WIDTH / 2}" y="50" text-anchor="middle">${phase.agent || ''}</text>
-      ${durText}
+      <text class="node-agent" x="${NODE_WIDTH / 2}" y="50" text-anchor="middle">${bottomText}</text>
       ${isDesignMode && tooltip ? `<title>${tooltip}</title>` : ''}
     </g>
   `;
@@ -261,15 +249,16 @@ function buildParallelNodes(phase, x, isDesignMode) {
     const label = agent.perspective.length > 5 ? agent.perspective.slice(0, 5) + '..' : agent.perspective;
 
     const agentDur = formatDuration(agent.duration_seconds);
-    const agentDurText = agentDur ? `<text x="${smallW / 2}" y="${smallH + 12}" text-anchor="middle" font-size="9" fill="#57606a">${agentDur}</text>` : '';
+    const verdictLine = agentDur
+      ? `${agent.verdict || agent.status} ${agentDur}`
+      : (agent.verdict || agent.status);
 
     svg += `
       <g class="phase-node status-${agent.status}" data-phase="${phase.id}" transform="translate(${x}, ${nodeY})">
         <rect x="0" y="0" width="${smallW}" height="${smallH}"
               fill="${colors.fill}" stroke="${colors.stroke}"/>
         <text class="node-name" x="${smallW / 2}" y="20" text-anchor="middle" font-size="11">${label}</text>
-        <text class="node-agent" x="${smallW / 2}" y="36" text-anchor="middle" font-size="9">${agent.verdict || agent.status}</text>
-        ${agentDurText}
+        <text class="node-agent" x="${smallW / 2}" y="36" text-anchor="middle" font-size="9">${verdictLine}</text>
       </g>
     `;
   });
@@ -283,7 +272,6 @@ function buildEdges(phases) {
     const x1 = 60 + i * NODE_SPACING + NODE_WIDTH;
     const x2 = 60 + (i + 1) * NODE_SPACING;
     const y = BASE_Y + NODE_HEIGHT / 2;
-    const midX = (x1 + x2) / 2;
 
     // 判断是否为活跃连线（左侧或右侧 phase 为 running/iterating）
     const leftStatus = phases[i].status;
@@ -296,11 +284,6 @@ function buildEdges(phases) {
     svg += `<path class="${pathClass}" d="M ${x1} ${y} L ${x2} ${y}"/>`;
     // 箭头
     svg += `<polygon class="edge-arrow" points="${x2 - 6},${y - 4} ${x2},${y} ${x2 - 6},${y + 4}"/>`;
-    // 标注
-    if (EDGE_LABELS[i]) {
-      const label = EDGE_LABELS[i].length > 14 ? EDGE_LABELS[i].slice(0, 14) + '..' : EDGE_LABELS[i];
-      svg += `<text class="edge-label" x="${midX}" y="${y - 10}">${label}</text>`;
-    }
   }
   return svg;
 }
