@@ -1,0 +1,49 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>ai-coding-agents Dashboard</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <!-- 顶部栏 -->
+  <header class="header">
+    <div class="header-title" id="project-name">ai-coding-agents 流水线</div>
+    <div class="header-info">
+      <span id="last-scan">最后扫描: --</span>
+      <select id="req-selector" title="需求选择器">
+        <option value="">自动检测</option>
+      </select>
+    </div>
+  </header>
+
+  <!-- 主容器 -->
+  <div class="main-container">
+    <div class="content-area">
+      <!-- 流程图区域 -->
+      <div class="pipeline-graph" id="pipeline-graph">
+        <svg id="pipeline-svg" width="1400" height="400" viewBox="0 0 1400 400"></svg>
+      </div>
+
+      <!-- Agent 详情面板 -->
+      <div class="detail-panel empty" id="detail-panel">
+        <span>点击流程图节点查看 Agent 详情</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- 文件查看器侧面板 -->
+  <div class="overlay" id="overlay"></div>
+  <div class="file-viewer" id="file-viewer">
+    <div class="file-viewer-header">
+      <span class="file-path" id="file-viewer-path">--</span>
+      <button class="file-viewer-close" id="file-viewer-close">&times;</button>
+    </div>
+    <div class="file-viewer-content" id="file-viewer-content"></div>
+  </div>
+
+  <script src="md-parser.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>
