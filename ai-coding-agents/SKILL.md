@@ -19,20 +19,23 @@ description: >-
 
 ```yaml
 # === 项目基础 ===
-PROJECT_ROOT: "."
-OUTPUT_DIR: ".ai-coding"
+PROJECT_ROOT: "."                        # 用户项目根目录（默认当前工作目录）
+OUTPUT_DIR: ".ai-coding"                 # 产出目录（相对于 PROJECT_ROOT）
+
+# TECH_STACK 由主Agent在 Phase 1 结束后自动填写（从代码推断或用户确认）。
+# 未填写时流水线仍可运行，仅影响 P7 测试命令和部分检查项的精度。
 TECH_STACK:
-  language: "{{language}}"               # Java | TypeScript | Python | Go | ...
-  framework: "{{framework}}"            # Spring Boot | Next.js | FastAPI | ...
-  test_framework: "{{test_framework}}"   # JUnit | Jest | Pytest | ...
-  build_tool: "{{build_tool}}"           # Maven | npm | pip | ...
-  architecture: "{{architecture}}"       # microservice | monolith | modular-monolith
+  language: ""                           # Java | TypeScript | Python | Go | ...
+  framework: ""                          # Spring Boot | Next.js | FastAPI | ...
+  test_framework: ""                     # JUnit | Jest | Pytest | ...
+  build_tool: ""                         # Maven | npm | pip | ...
+  architecture: ""                       # microservice | monolith | modular-monolith
 
 # === 扩展文档挂载 ===
 # type: feishu | confluence | local | git | url
 # 每个阶段可挂载多份文档，启动对应角色时自动注入。
 EXTENSION_DOCS:
-  requirement: []     # 产品PRD、业务流程图 → planner
+  requirement: []     # 产品PRD、业务流程图 → collector
   design: []          # 业务知识文档、数据字典、API契约 → designer
   coding: []          # 代码军规、编码规范、框架使用指南 → coder
   review: []          # 评审检查清单、安全基线 → reviewer
@@ -64,17 +67,17 @@ Bash: curl -s http://localhost:8080/api/dirs >/dev/null 2>&1 && echo "RUNNING" |
 
 # Step 2b: 如果未运行，后台启动
 Bash(run_in_background: true):
-  python3 {SKILL_DIR}/dashboard/server.py --port 8080
+  python3 {SKILL_DIR}/dashboard/server.py --project-root {PROJECT_ROOT} --port 8080
 → 等待 1s 后验证启动成功
 Bash: sleep 1 && curl -s http://localhost:8080/api/dirs >/dev/null 2>&1 && echo "OK" || echo "FAIL"
 → 如果 8080 端口被占用，尝试 8081、8082
 → 输出: "Dashboard 已启动: http://localhost:{PORT}"
 
 # Step 3: 如果端口全部被占用，提示用户手动处理
-→ 输出: "Dashboard 启动失败，请手动执行: python3 {SKILL_DIR}/dashboard/server.py --port {PORT}"
+→ 输出: "Dashboard 启动失败，请手动执行: python3 {SKILL_DIR}/dashboard/server.py --project-root {PROJECT_ROOT} --port {PORT}"
 ```
 
-其中 `{SKILL_DIR}` 为本 skill 所在目录（即 SKILL.md 的同级目录）。
+其中 `{SKILL_DIR}` 为本 skill 所在目录（即 SKILL.md 的同级目录），`{PROJECT_ROOT}` 为用户项目根目录（CONFIG 中配置，默认为 `.` 即当前工作目录）。
 
 ---
 
@@ -83,20 +86,22 @@ Bash: sleep 1 && curl -s http://localhost:8080/api/dirs >/dev/null 2>&1 && echo 
 1. **纯调度不执行** — 绝不直接编辑代码文件，绝不直接读子Agent产出内容
 2. **Grep提取判定** — 只用 Grep 提取评审报告的 PASS/FAIL + 统计行
 3. **Task驱动** — 每个 Phase 开始前 TaskCreate，完成后 TaskUpdate
-4. **日志记录** — 所有关键事件写入 `{需求目录}/log/执行日志.md`，时间格式为 `YYYY-MM-DD HH:MM:SS`
-   - 每个Agent必须记录三个时间点：启动、🔄运行中、✅完成（或❌失败）
-   - Agent注册表必须包含可读的Agent名称列（如 "P5-编码工程师"），不能只写角色代号
+4. **日志记录** — Agent 每个事件追加到 `{需求目录}/log/执行日志.md` 的 `Agent 执行记录` 表
+   - 事件类型只能用枚举值：`启动` | `完成` | `PASS` | `FAIL` | `Resume` | `降级新建`（见 [reference/执行日志规范.md](reference/执行日志规范.md)）
+   - Agent名称只能用枚举值（如 "P5-编码工程师"），见执行日志规范 Agent 名称表
+   - **仅追加不修改**，每个事件一行，序号递增；Dashboard 从此表派生所有 Phase 状态
+   - 子 Agent 不关心本表，只聚焦自身业务；主 Agent 负责所有记录
 5. **扩展文档转发** — 启动子Agent时将 EXTENSION_DOCS 对应路径注入 prompt
-6. **AgentID管理** — 记录每个子Agent的ID，修正循环时用 SendMessage Resume
+6. **AgentID管理** — agentId 记录在执行记录表中，修正循环时从表中 Grep 查找
 7. **工具预加载** — 流水线启动时用 ToolSearch 预加载 SendMessage 工具，确保修正循环可用
 
 ### Agent 生命周期管理
 
 #### 首次启动子Agent（所有 Phase 的子Agent）
 
-**适用范围**: P1 interviewer、P2 planner、P3 designer、P5 coder、P7 tester，以及 P4/P6 的每个 reviewer。所有子Agent 启动时都必须注册和追踪状态，不可遗漏。
+**适用范围**: P1 interviewer、P2 collector、P3 designer、P5 coder、P7 tester，以及 P4/P6 的每个 reviewer。所有子Agent 启动时都必须记录，不可遗漏。
 
-主Agent必须执行以下**完整步骤**，不可省略任何一步：
+主Agent必须执行以下步骤：
 
 ```
 # Step 1: 启动子Agent
@@ -107,79 +112,63 @@ Bash: sleep 1 && curl -s http://localhost:8080/api/dirs >/dev/null 2>&1 && echo 
 
 # Step 2: 从返回结果末尾提取 agentId
 # 返回格式示例: "agentId: af12833733cee1482 (use SendMessage with to: 'af12833733cee1482' to continue)"
-# 提取: af12833733cee1482
 
-# Step 3: 立即写入执行日志 Agent 注册表（启动时标记🔄运行中）
-Edit: 执行日志.md → Agent注册表追加行:
-  | coder | P5-编码工程师 | af12833733cee1482 | P5 | 🔄 | 编码实现中 |
-# Step 3b: 时间线记录启动和运行中两个时间点
-Edit: 执行日志.md → 时间线追加:
-  - 2026-05-01 13:44:00 P5 coder 启动 — 编码实现
-  - 2026-05-01 13:44:05 P5 coder 🔄运行中 — 修改 app.js + style.css
+# Step 3: 追加「启动」行到 Agent 执行记录
+Edit: 执行日志.md → Agent 执行记录表追加:
+  | {seq} | 2026-05-01 13:44:00 | P5 | P5-编码工程师 | af12833733cee1482 | 启动 | 编码实现 |
 
-# Step 4: 确认 SendMessage 工具可用（首次时）
+# Step 4: Agent 返回结果后，追加「完成」行（评审 Agent 用 PASS/FAIL）
+Edit: 执行日志.md → Agent 执行记录表追加:
+  | {seq} | 2026-05-01 13:45:20 | P5 | P5-编码工程师 | af12833733cee1482 | 完成 | 修改 app.js + style.css |
+
+# Step 5: 确认 SendMessage 工具可用（首次时）
 调用工具: ToolSearch(query: "select:SendMessage")
-→ 确保后续修正循环可直接调用
 ```
 
 #### 修正循环 — Resume 同一子Agent（关键路径）
 
-当 P4/P6 评审 FAIL，主Agent必须执行以下**精确命令**：
+当 P4/P6 评审 FAIL，主Agent必须执行以下步骤（每一步都追加执行记录行）：
 
 ```
 # ═══ P4 FAIL → Resume designer 修复系分 ═══
 
-# Step 1: 从执行日志 Agent 注册表中查找 designer 的 agentId
-Grep: 执行日志.md 中 "designer" 行 → 提取 agentId (如: a93d982bf226a0d84)
+# Step 1: 从 Agent 执行记录中 Grep designer 的 agentId
+Grep: 执行日志.md 中 "P3-系分设计师" → 提取 agentId
 
 # Step 2: Grep 提取评审问题摘要（不读全文）
 Grep: log/phase4-评审-*.md 中 "CRITICAL\|HIGH" 行 → 汇总问题列表
 
-# Step 3: Resume designer 子Agent
+# Step 3: 追加「Resume」行 + Resume designer
+Edit: 执行日志.md → Agent 执行记录表追加:
+  | {seq} | {time} | P3 | P3-系分设计师 | {agentId} | Resume | P4评审FAIL，修复系分 |
 调用工具: SendMessage(
-  to: "a93d982bf226a0d84",
+  to: "{agentId}",
   message: "P4 评审发现以下问题需要修复:
     1. [HIGH] {具体问题描述} — 建议: {评审建议}
-    2. [HIGH] {具体问题描述} — 建议: {评审建议}
     评审报告路径: {需求目录}/log/phase4-评审-需求完整度.md
     请逐条修复后更新系分文档，完成后告知。"
 )
-→ designer 子Agent 保留完整对话历史，理解原始设计意图
-→ 无需重新传入系分文档（已在子Agent上下文中）
 
-# Step 4: 修复完成后 Resume reviewers 重新评审
-Grep: 执行日志.md 中 "reviewer" 行 → 提取各 reviewer 的 agentId
-调用工具: SendMessage(
-  to: "{reviewer_agentId}",
-  message: "designer 已修复上述问题，请重新评审系分文档，重点验证修复项。
-    评审结果写入: {需求目录}/log/phase4-评审-{视角}-复审.md"
-)
+# Step 4: 修复完成后追加「完成」行
+Edit: 执行日志.md → Agent 执行记录表追加:
+  | {seq} | {time} | P3 | P3-系分设计师 | {agentId} | 完成 | 修复完成 |
+
+# Step 5: Resume reviewers 复审（每个追加「Resume」行 + 完成后追加「PASS/FAIL」行）
+Edit: 执行日志.md → Agent 执行记录表追加:
+  | {seq} | {time} | P4 | P4-需求完整度评审员 | {reviewer_agentId} | Resume | 复审 |
+调用工具: SendMessage(to: "{reviewer_agentId}", message: "designer 已修复问题，请重新评审...")
+# 复审完成后:
+Edit: 执行日志.md → Agent 执行记录表追加:
+  | {seq} | {time} | P4 | P4-需求完整度评审员 | {reviewer_agentId} | PASS | 复审 0C/0H/0M/0L |
 
 # ═══ P6 FAIL → Resume coder 修复代码 ═══
+# 流程同上，将 P3/designer 替换为 P5/coder，P4/reviewer 替换为 P6/reviewer
 
-# Step 1: 从执行日志 Agent 注册表中查找 coder 的 agentId
-Grep: 执行日志.md 中 "coder" 行 → 提取 agentId (如: af12833733cee1482)
-
-# Step 2: Grep 提取 CR 问题摘要
-Grep: log/phase6-CR-*.md 中 "CRITICAL\|HIGH" 行 → 汇总问题列表
-
-# Step 3: Resume coder 子Agent
-调用工具: SendMessage(
-  to: "af12833733cee1482",
-  message: "P6 代码CR发现以下问题需要修复:
-    1. [HIGH] {文件:行号} {问题描述} — 建议: {修复方案}
-    2. [HIGH] {文件:行号} {问题描述} — 建议: {修复方案}
-    CR报告路径: {需求目录}/log/phase6-CR-需求实现度.md
-    请逐条修复代码，完成后告知。"
-)
-→ coder 子Agent 保留完整编码上下文，知道代码结构和设计决策
-
-# Step 4: 修复完成后 Resume CR reviewers 重新评审
-调用工具: SendMessage(
-  to: "{cr_reviewer_agentId}",
-  message: "coder 已修复上述问题，请重新评审代码，重点验证修复项。
-    评审结果写入: {需求目录}/log/phase6-CR-{视角}-复审.md"
-)
+# Step 1: Grep "P5-编码工程师" 提取 agentId
+# Step 2: Grep CR 问题摘要
+# Step 3: 追加 Resume 行 + SendMessage(to: "{coder_agentId}")
+# Step 4: 修复完成后追加 完成 行
+# Step 5: Resume CR reviewers + 追加 PASS/FAIL 行
 ```
 
 #### 修正循环产出规范
@@ -203,21 +192,21 @@ Grep: log/phase6-CR-*.md 中 "CRITICAL\|HIGH" 行 → 汇总问题列表
     ..."
 )
 
-# 必须在执行日志中注明降级
-Edit: 执行日志.md → 时间线追加:
-  "P6 修正 — 新建代替Resume（SendMessage不可用，降级执行）"
+# 必须在执行记录中追加「降级新建」事件
+Edit: 执行日志.md → Agent 执行记录表追加:
+  | {seq} | {time} | P5 | P5-编码工程师 | {new_agentId} | 降级新建 | SendMessage不可用 |
 ```
 
 #### Resume vs 新建的判定表
 
-| 场景 | 操作 | 具体工具调用 |
-|------|------|-------------|
-| P4 FAIL，局部问题 | Resume designer | `SendMessage(to: "{designer_agentId}", message: "...")` |
-| P6 FAIL，局部问题 | Resume coder | `SendMessage(to: "{coder_agentId}", message: "...")` |
-| 评审后复审 | Resume reviewer | `SendMessage(to: "{reviewer_agentId}", message: "...")` |
-| 架构级问题需重做 | 新建 Agent | `Agent(prompt: "...", description: "P3 designer 重做")` |
-| 需求理解错误 | 回退P1全流程 | `Agent(prompt: "...", description: "P1 interviewer 重做")` |
-| SendMessage 不可用 | 降级新建 | `Agent(prompt: "...[含完整上下文]...")` + 日志注明降级 |
+| 场景 | 操作 | 具体工具调用 | 执行记录事件 |
+|------|------|-------------|-------------|
+| P4 FAIL，局部问题 | Resume designer | `SendMessage(to: "{designer_agentId}")` | Resume → 完成 |
+| P6 FAIL，局部问题 | Resume coder | `SendMessage(to: "{coder_agentId}")` | Resume → 完成 |
+| 评审后复审 | Resume reviewer | `SendMessage(to: "{reviewer_agentId}")` | Resume → PASS/FAIL |
+| 架构级问题需重做 | 新建 Agent | `Agent(description: "P3 designer 重做")` | 启动 → 完成 |
+| 需求理解错误 | 回退P1全流程 | `Agent(description: "P1 interviewer 重做")` | 启动 → 完成 |
+| SendMessage 不可用 | 降级新建 | `Agent(prompt: "...[含完整上下文]...")` | 降级新建 → 完成 |
 
 ### 并行Agent执行
 
@@ -230,29 +219,24 @@ Phase 4（3个评审）和 Phase 6（3个CR）用 `Agent(run_in_background: true
   Agent(description: "P4 perf-reviewer", run_in_background: true, prompt: "...")
   Agent(description: "P4 req-reviewer", run_in_background: true, prompt: "...")
 
-# Step 2: 等待所有完成通知（自动通知，不需要轮询）
+# Step 2: 提取 agentId，追加 3 个「启动」行
+Edit: 执行日志.md → Agent 执行记录表追加:
+  | {seq}   | {time} | P4 | P4-架构评审员     | {agentId1} | 启动 | 架构评审 |
+  | {seq+1} | {time} | P4 | P4-性能评审员     | {agentId2} | 启动 | 性能评审 |
+  | {seq+2} | {time} | P4 | P4-需求完整度评审员 | {agentId3} | 启动 | 需求完整度评审 |
 
-# Step 3: 逐个 Grep 提取判定结果
+# Step 3: 等待所有完成通知（自动通知，不需要轮询）
+
+# Step 4: Grep 提取判定结果
 Grep: log/phase4-评审-架构.md → "## 判定" 行
 Grep: log/phase4-评审-性能.md → "## 判定" 行
 Grep: log/phase4-评审-需求完整度.md → "## 判定" 行
 
-# Step 4a: 启动时立即写入注册表（🔄运行中）+ 时间线
-Edit: 执行日志.md → Agent注册表追加:
-  | design-reviewer | P4-架构评审员 | {agentId1} | P4 | 🔄 | 架构评审中 |
-  | perf-reviewer | P4-性能评审员 | {agentId2} | P4 | 🔄 | 性能评审中 |
-  | req-reviewer | P4-需求完整度评审员 | {agentId3} | P4 | 🔄 | 需求完整度评审中 |
-Edit: 执行日志.md → 时间线追加:
-  - 2026-05-01 13:46:00 P4 3路评审并行启动
-  - 2026-05-01 13:46:05 P4 design-reviewer 🔄运行中
-  - 2026-05-01 13:46:05 P4 perf-reviewer 🔄运行中
-  - 2026-05-01 13:46:05 P4 req-reviewer 🔄运行中
-
-# Step 4b: 完成通知后更新注册表状态为✅ + 时间线记录完成
-Edit: 执行日志.md → Agent注册表更新:
-  | design-reviewer | P4-架构评审员 | {agentId1} | P4 | ✅ | 架构评审 PASS |
-Edit: 执行日志.md → 时间线追加:
-  - 2026-05-01 13:47:10 P4 design-reviewer ✅完成 — PASS
+# Step 5: 逐个追加「PASS」或「FAIL」行
+Edit: 执行日志.md → Agent 执行记录表追加:
+  | {seq} | {time} | P4 | P4-架构评审员     | {agentId1} | PASS | 0C/0H/2M/1L |
+  | {seq} | {time} | P4 | P4-性能评审员     | {agentId2} | PASS | 0C/0H/0M/1L |
+  | {seq} | {time} | P4 | P4-需求完整度评审员 | {agentId3} | FAIL | 1C/0H/0M/0L |
 ```
 
 ---
@@ -261,7 +245,7 @@ Edit: 执行日志.md → 时间线追加:
 
 ```
 P1 需求澄清 → P2 知识采集 → P3 系分编写 → P4 系分评审 ⇄ 修正(≤3轮)
-interviewer    planner       designer      3×reviewer    Resume designer
+interviewer    collector      designer      3×reviewer    Resume designer
                                                 ↓ PASS
                                            P5 编码实现 → P6 代码CR ⇄ 修正(≤3轮)
                                              coder       3×reviewer  Resume coder
@@ -292,7 +276,7 @@ interviewer    planner       designer      3×reviewer    Resume designer
 
 ## Phase 2: 知识采集
 
-**执行者**: planner 子Agent  
+**执行者**: collector 子Agent  
 **挂载**: EXTENSION_DOCS.requirement  
 **产出**: `代码阅读报告.md` + `知识摘要.md`
 
@@ -415,12 +399,12 @@ interviewer    planner       designer      3×reviewer    Resume designer
 │   ├── 系分文档.md                         # Phase 3 产出
 │   ├── 需求追踪矩阵.md                     # Phase 3 产出
 │   ├── 交付报告.md                         # Phase 8 产出
-│   └── log/                               # 执行日志（子Agent独立写入，防冲突）
-│       ├── 执行日志.md                     # 主Agent时间线
+│   └── log/                               # 执行日志（主Agent记录状态，子Agent写独立log）
+│       ├── 执行日志.md                     # Agent 执行记录（Dashboard 状态唯一来源）
+│       ├── phase1-需求澄清.md
 │       ├── phase2-知识采集.md
 │       ├── phase3-系分编写.md
 │       ├── phase4-评审-架构.md              # 子Agent独立文件
-│       ├── phase4-评审-安全.md
 │       ├── phase4-评审-性能.md
 │       ├── phase4-评审-需求完整度.md
 │       ├── phase4-迭代-1.md                 # 迭代按编号追加
@@ -451,7 +435,7 @@ interviewer    planner       designer      3×reviewer    Resume designer
 |------|------|------|
 | 主Agent | 文件路径 + Grep判定 | 代码、系分全文、评审全文 |
 | interviewer | 用户对话、EXTENSION_DOCS.requirement | 代码文件 |
-| planner | 需求清单、代码库、GitNexus索引 | 其他Agent产出 |
+| collector | 需求清单、代码库、GitNexus索引 | 其他Agent产出 |
 | designer | 需求清单、代码阅读报告、知识摘要 | 代码文件 |
 | coder | 系分文档、追踪矩阵、经验库 | 评审报告全文 |
 | reviewer-* | 系分/代码、需求清单、追踪矩阵 | 其他reviewer的报告 |
@@ -492,7 +476,7 @@ TaskCreate: "Phase 7 — 测试验证"
 
 | Phase | 产出文件 | 质量关键指标 | 下游消费者 |
 |-------|---------|-------------|-----------|
-| P1 | 需求清单.md | 每条需求有验收标准、无"待定" | P2 planner, P3 designer, P4/P6 reviewer |
+| P1 | 需求清单.md | 每条需求有验收标准、无"待定" | P2 collector, P3 designer, P4/P6 reviewer |
 | P2 | 代码阅读报告.md + 知识摘要.md | 来源标注、风险覆盖 | P3 designer |
 | P3 | 系分文档.md + 需求追踪矩阵.md | 需求覆盖100%、架构约束通过 | P4 reviewer, P5 coder |
 | P4 | log/phase4-评审-*.md | 判定行首行、问题有具体建议 | 主Agent判定、designer修正 |

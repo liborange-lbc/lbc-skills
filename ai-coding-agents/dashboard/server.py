@@ -11,17 +11,31 @@ from http.server import ThreadingHTTPServer, SimpleHTTPRequestHandler
 from pathlib import Path
 from urllib.parse import urlparse, parse_qs
 
+# Agent 执行记录事件类型 → Dashboard 状态映射
+# 与 SKILL.md 和 reference/执行日志规范.md 保持一致，不可自创事件名
+AGENT_EVENTS = {
+    "启动":     "running",
+    "完成":     "pass",
+    "PASS":    "pass",
+    "FAIL":    "fail",
+    "Resume":  "running",
+    "降级新建": "running",
+}
+
 # Phase 配置数组 - 集中定义，便于扩展
+# display_name 为 Agent 执行记录中 Agent名称 列的唯一合法值
 PHASE_CONFIG = [
     {
         "id": "P1", "name": "需求澄清", "agent": "interviewer",
+        "display_name": "P1-需求访谈员",
         "log_file": "phase1-需求澄清.md",
         "output_files": ["需求清单.md"], "input_files": [],
         "design_principles": ["需求驱动全流程"],
         "parallel": False
     },
     {
-        "id": "P2", "name": "知识采集", "agent": "planner",
+        "id": "P2", "name": "知识采集", "agent": "collector",
+        "display_name": "P2-知识采集员",
         "log_file": "phase2-知识采集.md",
         "output_files": ["代码阅读报告.md", "知识摘要.md"],
         "input_files": ["需求清单.md"],
@@ -30,6 +44,7 @@ PHASE_CONFIG = [
     },
     {
         "id": "P3", "name": "系分编写", "agent": "designer",
+        "display_name": "P3-系分设计师",
         "log_file": "phase3-系分编写.md",
         "output_files": ["系分文档.md", "需求追踪矩阵.md"],
         "input_files": ["需求清单.md", "代码阅读报告.md", "知识摘要.md"],
@@ -44,14 +59,15 @@ PHASE_CONFIG = [
         "design_principles": ["Resume优于新建", "经验库累积"],
         "parallel": True,
         "reviewers": [
-            {"role": "design-reviewer", "perspective": "架构合理性", "log_file": "phase4-评审-架构.md"},
-            {"role": "performance-reviewer", "perspective": "性能容量", "log_file": "phase4-评审-性能.md"},
-            {"role": "req-completeness-reviewer", "perspective": "需求完整度", "log_file": "phase4-评审-需求完整度.md"},
+            {"role": "design-reviewer", "perspective": "架构合理性", "log_file": "phase4-评审-架构.md", "display_name": "P4-架构评审员"},
+            {"role": "performance-reviewer", "perspective": "性能容量", "log_file": "phase4-评审-性能.md", "display_name": "P4-性能评审员"},
+            {"role": "req-completeness-reviewer", "perspective": "需求完整度", "log_file": "phase4-评审-需求完整度.md", "display_name": "P4-需求完整度评审员"},
         ],
         "iteration_prefix": "phase4-迭代"
     },
     {
         "id": "P5", "name": "编码", "agent": "coder",
+        "display_name": "P5-编码工程师",
         "log_file": "phase5-编码.md",
         "output_files": [],
         "input_files": ["系分文档.md", "需求追踪矩阵.md"],
@@ -66,14 +82,15 @@ PHASE_CONFIG = [
         "design_principles": ["Resume优于新建", "经验库累积"],
         "parallel": True,
         "reviewers": [
-            {"role": "code-quality-reviewer", "perspective": "代码质量", "log_file": "phase6-CR-质量.md"},
-            {"role": "code-security-reviewer", "perspective": "安全", "log_file": "phase6-CR-安全.md"},
-            {"role": "code-req-reviewer", "perspective": "需求实现度", "log_file": "phase6-CR-需求实现度.md"},
+            {"role": "code-quality-reviewer", "perspective": "代码质量", "log_file": "phase6-CR-质量.md", "display_name": "P6-代码质量评审员"},
+            {"role": "code-security-reviewer", "perspective": "安全", "log_file": "phase6-CR-安全.md", "display_name": "P6-安全评审员"},
+            {"role": "code-req-reviewer", "perspective": "需求实现度", "log_file": "phase6-CR-需求实现度.md", "display_name": "P6-需求实现度评审员"},
         ],
         "iteration_prefix": "phase6-迭代"
     },
     {
         "id": "P7", "name": "测试", "agent": "tester",
+        "display_name": "P7-测试工程师",
         "log_file": "phase7-测试.md",
         "output_files": ["log/phase7-测试.md"],
         "input_files": ["代码", "需求清单.md"],
@@ -82,6 +99,7 @@ PHASE_CONFIG = [
     },
     {
         "id": "P8", "name": "交付", "agent": "主Agent",
+        "display_name": "P8-主Agent",
         "log_file": None,
         "output_files": ["交付报告.md", "执行摘要.md"],
         "input_files": ["所有日志"],
@@ -123,29 +141,30 @@ class LogScanner:
     def scan(self):
         """执行完整扫描，返回状态 JSON 结构"""
         requirement_name = self.base_dir.name
-        phases = []
 
+        # Step 1: 解析执行记录，构建 phase_map（状态唯一来源）
+        agent_records = self._parse_execution_records()
+        phase_map = self._build_phase_map(agent_records)
+
+        # Step 2: 扫描各 Phase（状态从 phase_map，详情从 log 文件）
+        phases = []
         for config in PHASE_CONFIG:
             if config["parallel"]:
-                phases.append(self._scan_parallel_phase(config))
+                phases.append(self._scan_parallel_phase(config, agent_records, phase_map))
             else:
-                phases.append(self._scan_single_phase(config))
-
-        # 解析执行日志
-        agent_registry, timeline = self._parse_execution_log()
+                phases.append(self._scan_single_phase(config, phase_map))
 
         return {
             "requirement_name": requirement_name,
             "requirement_dir": str(self.base_dir.relative_to(self.project_root)),
             "last_scan_time": datetime.now().isoformat(timespec='seconds'),
             "phases": phases,
-            "agent_registry": agent_registry,
-            "timeline": timeline,
+            "agent_records": agent_records,
             "output_files": self._collect_output_files(phases),
         }
 
-    def _scan_single_phase(self, config):
-        """扫描单Agent Phase"""
+    def _scan_single_phase(self, config, phase_map):
+        """扫描单Agent Phase — 状态从执行记录，详情从 log 文件"""
         phase = {
             "id": config["id"],
             "name": config["name"],
@@ -159,28 +178,39 @@ class LogScanner:
             "parallel": False,
         }
 
+        phase_id = config["id"]
+
+        # 状态来源 1: 执行记录（优先）
+        if phase_id in phase_map:
+            agents = phase_map[phase_id]
+            statuses = [a["status"] for a in agents.values()]
+            if all(s == "pass" for s in statuses):
+                phase["status"] = "pass"
+            elif any(s == "fail" for s in statuses):
+                phase["status"] = "fail"
+            elif any(s == "running" for s in statuses):
+                phase["status"] = "running"
+
+        # 详情: 从 log 文件读取摘要
         if config["log_file"]:
             log_path = self.log_dir / config["log_file"]
             content = self.cache.read(str(log_path))
             if content is not None:
-                phase["status"] = self._determine_status(content, is_review=False)
                 phase["summary"] = self._extract_summary(content)
-            else:
-                phase["status"] = "pending"
-        else:
-            # P8: 检查交付报告是否存在
-            if config["id"] == "P8":
-                delivery = self.base_dir / "交付报告.md"
-                if delivery.exists():
-                    content = self.cache.read(str(delivery))
-                    phase["status"] = "pass" if content else "pending"
-                    if content:
-                        phase["summary"] = self._extract_summary(content)
+
+        # P8 特殊: 检查交付报告
+        if config["id"] == "P8" and phase["status"] == "pending":
+            delivery = self.base_dir / "交付报告.md"
+            if delivery.exists():
+                content = self.cache.read(str(delivery))
+                phase["status"] = "pass" if content else "pending"
+                if content:
+                    phase["summary"] = self._extract_summary(content)
 
         return phase
 
-    def _scan_parallel_phase(self, config):
-        """扫描并行评审 Phase"""
+    def _scan_parallel_phase(self, config, records, phase_map):
+        """扫描并行评审 Phase — 状态从执行记录，统计从 log 文件"""
         phase = {
             "id": config["id"],
             "name": config["name"],
@@ -195,15 +225,15 @@ class LogScanner:
             "design_principles": config["design_principles"],
         }
 
+        phase_id = config["id"]
+        phase_agents = phase_map.get(phase_id, {})
+
         all_pass = True
         any_running = False
         any_fail = False
-        any_exists = False
+        any_exists = bool(phase_agents)
 
         for reviewer in config["reviewers"]:
-            log_path = self.log_dir / reviewer["log_file"]
-            content = self.cache.read(str(log_path))
-
             agent_info = {
                 "role": reviewer["role"],
                 "perspective": reviewer["perspective"],
@@ -213,43 +243,49 @@ class LogScanner:
                 "stats": {"critical": 0, "high": 0, "medium": 0, "low": 0},
             }
 
-            if content is not None:
-                any_exists = True
+            # 状态来源 1: 执行记录（通过 display_name 精确匹配）
+            display_name = reviewer.get("display_name", "")
+            agent_data = phase_agents.get(display_name)
 
-                # 如果有复审文件，优先使用复审结果
-                review_path = self.log_dir / reviewer["log_file"].replace('.md', '-复审.md')
-                review_content = self.cache.read(str(review_path))
-                effective_content = review_content if review_content else content
-
-                status = self._determine_status(effective_content, is_review=True)
-                agent_info["status"] = status
-
-                if "## 判定：PASS" in effective_content:
+            if agent_data:
+                agent_info["status"] = agent_data["status"]
+                if agent_data["event"] == "PASS":
                     agent_info["verdict"] = "PASS"
-                elif "## 判定：FAIL" in effective_content:
+                elif agent_data["event"] == "FAIL":
                     agent_info["verdict"] = "FAIL"
                     any_fail = True
                     all_pass = False
+                elif agent_data["status"] == "running":
+                    any_running = True
+                    all_pass = False
                 else:
                     all_pass = False
-                    any_running = True
-
-                # 解析问题统计
-                agent_info["stats"] = self._parse_stats(content)
             else:
                 all_pass = False
 
+            # 统计: 从 log 文件读取（评审详细数据）
+            log_path = self.log_dir / reviewer["log_file"]
+            content = self.cache.read(str(log_path))
+            if content is not None:
+                agent_info["stats"] = self._parse_stats(content)
+
             phase["agents"].append(agent_info)
 
-        # 扫描迭代文件
+        # 迭代次数: 优先从迭代文件，其次从执行记录中 Resume 事件计数
         iterations = self._scan_iterations(config.get("iteration_prefix", ""))
         phase["iterations"] = iterations
         phase["iteration_count"] = len(iterations)
+        if not iterations and records:
+            resume_count = sum(1 for r in records
+                               if r["phase"] == phase_id and r["event"] == "Resume")
+            reviewer_count = len(config["reviewers"]) or 1
+            if resume_count > 0:
+                phase["iteration_count"] = max(1, resume_count // reviewer_count)
 
         # 确定整体状态
         if not any_exists:
             phase["status"] = "pending"
-        elif iterations and not all_pass:
+        elif phase["iteration_count"] > 0 and not all_pass:
             phase["status"] = "iterating"
         elif all_pass:
             phase["status"] = "pass"
@@ -261,26 +297,6 @@ class LogScanner:
             phase["status"] = "pending"
 
         return phase
-
-    def _determine_status(self, content, is_review=False):
-        """状态判断优先级"""
-        if is_review:
-            if "## 判定：PASS" in content:
-                return "pass"
-            if "## 判定：FAIL" in content:
-                return "fail"
-        # 检查完成标记（多种格式兼容）
-        completion_markers = [
-            "## 完成", "完成时间", "状态: 已完成", "状态：已完成",
-            "## 结论", "## 结果", "Phase.*完成",
-        ]
-        for marker in completion_markers:
-            if marker in content:
-                return "pass"
-        # 正则匹配 "- 状态: 已完成" 等变体
-        if re.search(r'[状态|Status].*[已完成|完成|done|DONE]', content):
-            return "pass"
-        return "running"
 
     def _extract_summary(self, content):
         """从文件首段提取摘要（<=100字）"""
@@ -334,45 +350,65 @@ class LogScanner:
                 break
         return iterations
 
-    def _parse_execution_log(self):
-        """解析执行日志，提取 Agent 注册表和时间线"""
+    def _parse_execution_records(self):
+        """解析 Agent 执行记录表"""
         log_path = self.log_dir / "执行日志.md"
         content = self.cache.read(str(log_path))
         if content is None:
-            return [], []
+            return []
 
-        agent_registry = []
-        timeline = []
-        in_registry = False
+        records = []
+        in_section = False
 
         for line in content.split('\n'):
-            # Agent 注册表
-            if '## Agent 注册表' in line or '## Agent注册表' in line:
-                in_registry = True
+            if '## Agent 执行记录' in line:
+                in_section = True
                 continue
-            if in_registry:
-                if line.startswith('##'):
-                    in_registry = False
-                elif line.startswith('|') and '---' not in line and '角色' not in line:
-                    cols = [c.strip() for c in line.split('|')[1:-1]]
-                    if len(cols) >= 4:
-                        agent_registry.append({
-                            "role": cols[0],
-                            "agent_id": cols[1] if len(cols) > 1 else "",
-                            "phase": cols[2] if len(cols) > 2 else "",
-                            "status": cols[3] if len(cols) > 3 else "",
-                            "note": cols[4] if len(cols) > 4 else "",
-                        })
+            if in_section and line.startswith('##'):
+                in_section = False
+                continue
 
-            # 时间线: 匹配 "- YYMMDD HHmm" 格式
-            time_match = re.match(r'^-\s+(\d{6}\s+\d{4})\s+(.+)', line)
-            if time_match:
-                timeline.append({
-                    "time": time_match.group(1),
-                    "event": time_match.group(2),
+            if not in_section or not line.startswith('|') or '---' in line:
+                continue
+
+            cols = [c.strip() for c in line.split('|')[1:-1]]
+            # 跳过表头: | # | 时间 | Phase | ...
+            if not cols or cols[0] == '#' or cols[0] == '序号':
+                continue
+            if len(cols) >= 6:
+                try:
+                    seq = int(cols[0])
+                except ValueError:
+                    continue
+                records.append({
+                    "seq": seq,
+                    "time": cols[1],
+                    "phase": cols[2],
+                    "agent_name": cols[3],
+                    "agent_id": cols[4],
+                    "event": cols[5],
+                    "note": cols[6] if len(cols) > 6 else "",
                 })
 
-        return agent_registry, timeline
+        return records
+
+    def _build_phase_map(self, records):
+        """从执行记录构建 {phase_id: {agent_name: 最新状态}} 映射"""
+        phase_map = {}
+        for r in records:
+            phase = r["phase"]
+            agent = r["agent_name"]
+            if phase not in phase_map:
+                phase_map[phase] = {}
+            # 同一 agent 取最后一条记录（顺序追加，后覆盖前）
+            status = AGENT_EVENTS.get(r["event"], "running")
+            phase_map[phase][agent] = {
+                "agent_id": r["agent_id"],
+                "status": status,
+                "event": r["event"],
+                "note": r["note"],
+            }
+        return phase_map
 
     def _collect_output_files(self, phases):
         """收集所有 Phase 的产出文件"""
@@ -545,11 +581,11 @@ def main():
     parser = argparse.ArgumentParser(description='流水线可视化 Dashboard 服务器')
     parser.add_argument('--port', type=int, default=8080, help='监听端口 (默认 8080)')
     parser.add_argument('--dir', type=str, default=None, help='指定需求目录 (如 .ai-coding/流水线可视化Dashboard)')
+    parser.add_argument('--project-root', type=str, default=None, help='项目根目录 (默认为当前工作目录)')
     args = parser.parse_args()
 
-    # 确定项目根目录（server.py 所在的 dashboard/ 的父目录）
     dashboard_dir = Path(__file__).resolve().parent
-    project_root = dashboard_dir.parent
+    project_root = Path(args.project_root).resolve() if args.project_root else Path.cwd()
 
     DashboardHandler.project_root = str(project_root)
     DashboardHandler.dashboard_dir = str(dashboard_dir)
