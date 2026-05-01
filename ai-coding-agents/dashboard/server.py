@@ -465,42 +465,23 @@ class LogScanner:
                         "duration_seconds": dur,
                     })
 
-        # 处理仍在 running 的 agent：追加临时 span + 计算总 duration
-        now_str = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-        for phase_id, agents in phase_map.items():
-            for agent_name, info in agents.items():
-                key = (phase_id, agent_name)
-                if key in open_spans and info["status"] == "running":
-                    dur = self._calc_duration(open_spans[key], now_str)
-                    info["spans"].append({
-                        "label": "进行中" if not info["spans"] else f"第{len(info['spans'])}次修正(进行中)",
-                        "start": open_spans[key],
-                        "end": None,
-                        "duration_seconds": dur,
-                    })
+        # 计算总 duration（仅从日志时间戳，不用 now()）
+        for agents in phase_map.values():
+            for info in agents.values():
                 info["duration_seconds"] = self._calc_duration(
                     info["start_time"], info["end_time"],
-                    is_running=(info["status"] == "running"),
                 )
         return phase_map
 
     @staticmethod
-    def _calc_duration(start_str, end_str, is_running=False):
-        """计算持续时间（秒），running 状态计到当前时刻"""
-        if not start_str:
+    def _calc_duration(start_str, end_str):
+        """从日志时间戳计算持续时间（秒），两端都必须有值"""
+        if not start_str or not end_str:
             return None
         try:
             start = datetime.strptime(start_str, "%Y-%m-%d %H:%M:%S")
+            end = datetime.strptime(end_str, "%Y-%m-%d %H:%M:%S")
         except ValueError:
-            return None
-        if end_str:
-            try:
-                end = datetime.strptime(end_str, "%Y-%m-%d %H:%M:%S")
-            except ValueError:
-                return None
-        elif is_running:
-            end = datetime.now()
-        else:
             return None
         return max(0, int((end - start).total_seconds()))
 
