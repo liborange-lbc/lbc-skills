@@ -191,6 +191,22 @@ class LogScanner:
             elif any(s == "running" for s in statuses):
                 phase["status"] = "running"
 
+            # 时间: 取该 phase 下所有 agent 的时间范围
+            all_durations = [a["duration_seconds"] for a in agents.values()
+                            if a["duration_seconds"] is not None]
+            all_starts = [a["start_time"] for a in agents.values() if a["start_time"]]
+            all_ends = [a["end_time"] for a in agents.values() if a["end_time"]]
+            if all_durations:
+                phase["duration_seconds"] = max(all_durations)
+            if all_starts:
+                phase["start_time"] = min(all_starts)
+            if all_ends:
+                phase["end_time"] = max(all_ends)
+            # spans: 单 agent phase 直接取该 agent 的 spans
+            agent_list = list(agents.values())
+            if len(agent_list) == 1:
+                phase["spans"] = agent_list[0].get("spans", [])
+
         # 详情: 从 log 文件读取摘要
         if config["log_file"]:
             log_path = self.log_dir / config["log_file"]
@@ -249,6 +265,8 @@ class LogScanner:
 
             if agent_data:
                 agent_info["status"] = agent_data["status"]
+                agent_info["duration_seconds"] = agent_data.get("duration_seconds")
+                agent_info["spans"] = agent_data.get("spans", [])
                 if agent_data["event"] == "PASS":
                     agent_info["verdict"] = "PASS"
                 elif agent_data["event"] == "FAIL":
@@ -270,6 +288,12 @@ class LogScanner:
                 agent_info["stats"] = self._parse_stats(content)
 
             phase["agents"].append(agent_info)
+
+        # Phase 整体耗时: 从所有 agent 的最早 start 到最晚 end
+        all_agent_durations = [a.get("duration_seconds") for a in phase["agents"]
+                               if a.get("duration_seconds") is not None]
+        if all_agent_durations:
+            phase["duration_seconds"] = max(all_agent_durations)
 
         # 迭代次数: 优先从迭代文件，其次从执行记录中 Resume 事件计数
         iterations = self._scan_iterations(config.get("iteration_prefix", ""))
@@ -393,22 +417,92 @@ class LogScanner:
         return records
 
     def _build_phase_map(self, records):
-        """从执行记录构建 {phase_id: {agent_name: 最新状态}} 映射"""
+        """从执行记录构建 {phase_id: {agent_name: 最新状态+时间+spans}} 映射"""
         phase_map = {}
+        open_spans = {}  # (phase, agent_name) -> span_start_time
+
         for r in records:
             phase = r["phase"]
             agent = r["agent_name"]
+            key = (phase, agent)
+            status = AGENT_EVENTS.get(r["event"], "running")
+
             if phase not in phase_map:
                 phase_map[phase] = {}
-            # 同一 agent 取最后一条记录（顺序追加，后覆盖前）
-            status = AGENT_EVENTS.get(r["event"], "running")
-            phase_map[phase][agent] = {
-                "agent_id": r["agent_id"],
-                "status": status,
-                "event": r["event"],
-                "note": r["note"],
-            }
+            if agent not in phase_map[phase]:
+                phase_map[phase][agent] = {
+                    "agent_id": r["agent_id"],
+                    "status": status,
+                    "event": r["event"],
+                    "note": r["note"],
+                    "start_time": None,
+                    "end_time": None,
+                    "duration_seconds": None,
+                    "spans": [],
+                }
+
+            entry = phase_map[phase][agent]
+            entry["status"] = status
+            entry["event"] = r["event"]
+            entry["note"] = r["note"]
+            entry["agent_id"] = r["agent_id"]
+
+            if r["event"] in ("启动", "Resume", "降级新建"):
+                if entry["start_time"] is None:
+                    entry["start_time"] = r["time"]
+                open_spans[key] = r["time"]
+
+            if r["event"] in ("完成", "PASS", "FAIL"):
+                entry["end_time"] = r["time"]
+                span_start = open_spans.pop(key, None)
+                if span_start:
+                    dur = self._calc_duration(span_start, r["time"])
+                    label = "初次" if not entry["spans"] else f"第{len(entry['spans'])}次修正"
+                    entry["spans"].append({
+                        "label": label,
+                        "start": span_start,
+                        "end": r["time"],
+                        "duration_seconds": dur,
+                    })
+
+        # 处理仍在 running 的 agent：追加临时 span + 计算总 duration
+        now_str = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        for phase_id, agents in phase_map.items():
+            for agent_name, info in agents.items():
+                key = (phase_id, agent_name)
+                if key in open_spans and info["status"] == "running":
+                    dur = self._calc_duration(open_spans[key], now_str)
+                    info["spans"].append({
+                        "label": "进行中" if not info["spans"] else f"第{len(info['spans'])}次修正(进行中)",
+                        "start": open_spans[key],
+                        "end": None,
+                        "duration_seconds": dur,
+                    })
+                info["duration_seconds"] = self._calc_duration(
+                    info["start_time"], info["end_time"],
+                    is_running=(info["status"] == "running"),
+                )
         return phase_map
+
+    @staticmethod
+    def _calc_duration(start_str, end_str, is_running=False):
+        """计算持续时间（秒），running 状态计到当前时刻"""
+        if not start_str:
+            return None
+        try:
+            start = datetime.strptime(start_str, "%Y-%m-%d %H:%M:%S")
+        except ValueError:
+            return None
+        if end_str:
+            try:
+                end = datetime.strptime(end_str, "%Y-%m-%d %H:%M:%S")
+            except ValueError:
+                return None
+        elif is_running:
+            end = datetime.now()
+        else:
+            return None
+        return max(0, int((end - start).total_seconds()))
 
     def _collect_output_files(self, phases):
         """收集所有 Phase 的产出文件"""

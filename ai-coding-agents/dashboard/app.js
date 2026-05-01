@@ -42,6 +42,18 @@ const EDGE_LABELS = [
   '测试报告',
 ];
 
+// ============ 工具函数 ============
+function formatDuration(seconds) {
+  if (seconds == null) return '';
+  if (seconds < 60) return `${seconds}s`;
+  const m = Math.floor(seconds / 60);
+  const s = seconds % 60;
+  if (m < 60) return s > 0 ? `${m}m${s}s` : `${m}m`;
+  const h = Math.floor(m / 60);
+  const rm = m % 60;
+  return rm > 0 ? `${h}h${rm}m` : `${h}h`;
+}
+
 // 设计理念模式静态数据
 const DESIGN_PRINCIPLES_MAP = {
   P1: { label: '需求驱动全流程', desc: '需求清单贯穿8 Phase，每个阶段围绕需求条目执行，确保全链路可追踪' },
@@ -211,6 +223,9 @@ function buildSingleNode(phase, x, y, isDesignMode) {
   const principle = isDesignMode ? DESIGN_PRINCIPLES_MAP[phase.id] : null;
   const tooltip = principle ? `${principle.label} — ${principle.desc}` : '';
 
+  const dur = formatDuration(phase.duration_seconds);
+  const durText = dur ? `<text class="node-duration" x="${NODE_WIDTH / 2}" y="${NODE_HEIGHT + 14}" text-anchor="middle" font-size="10" fill="#57606a">${dur}</text>` : '';
+
   return `
     <g class="phase-node status-${phase.status}" data-phase="${phase.id}" transform="translate(${x}, ${y})">
       <rect x="0" y="0" width="${NODE_WIDTH}" height="${NODE_HEIGHT}"
@@ -218,6 +233,7 @@ function buildSingleNode(phase, x, y, isDesignMode) {
       <text class="node-id" x="${NODE_WIDTH / 2}" y="16" text-anchor="middle">${phase.id}</text>
       <text class="node-name" x="${NODE_WIDTH / 2}" y="34" text-anchor="middle">${phase.name}</text>
       <text class="node-agent" x="${NODE_WIDTH / 2}" y="50" text-anchor="middle">${phase.agent || ''}</text>
+      ${durText}
       ${isDesignMode && tooltip ? `<title>${tooltip}</title>` : ''}
     </g>
   `;
@@ -230,10 +246,12 @@ function buildParallelNodes(phase, x, isDesignMode) {
   const smallW = 110;
 
   // 主节点（虚线框）
+  const phaseDur = formatDuration(phase.duration_seconds);
+  const phaseDurLabel = phaseDur ? ` (${phaseDur})` : '';
   svg += `<g class="phase-node status-${phase.status}" data-phase="${phase.id}" transform="translate(${x - 5}, ${BASE_Y - 85})">
     <rect x="0" y="0" width="${NODE_WIDTH + 10}" height="230"
           fill="none" stroke="#d0d7de" stroke-dasharray="4" rx="8" ry="8"/>
-    <text class="node-id" x="${(NODE_WIDTH + 10) / 2}" y="-5" text-anchor="middle" fill="#57606a">${phase.id} ${phase.name}</text>
+    <text class="node-id" x="${(NODE_WIDTH + 10) / 2}" y="-5" text-anchor="middle" fill="#57606a">${phase.id} ${phase.name}${phaseDurLabel}</text>
   </g>`;
 
   // 子 Reviewer 节点
@@ -242,12 +260,16 @@ function buildParallelNodes(phase, x, isDesignMode) {
     const colors = STATUS_COLORS[agent.status] || STATUS_COLORS.pending;
     const label = agent.perspective.length > 5 ? agent.perspective.slice(0, 5) + '..' : agent.perspective;
 
+    const agentDur = formatDuration(agent.duration_seconds);
+    const agentDurText = agentDur ? `<text x="${smallW / 2}" y="${smallH + 12}" text-anchor="middle" font-size="9" fill="#57606a">${agentDur}</text>` : '';
+
     svg += `
       <g class="phase-node status-${agent.status}" data-phase="${phase.id}" transform="translate(${x}, ${nodeY})">
         <rect x="0" y="0" width="${smallW}" height="${smallH}"
               fill="${colors.fill}" stroke="${colors.stroke}"/>
         <text class="node-name" x="${smallW / 2}" y="20" text-anchor="middle" font-size="11">${label}</text>
         <text class="node-agent" x="${smallW / 2}" y="36" text-anchor="middle" font-size="9">${agent.verdict || agent.status}</text>
+        ${agentDurText}
       </g>
     `;
   });
@@ -388,6 +410,8 @@ function buildSingleDetail(phase) {
     </div>
     <div class="detail-summary">
       <strong>日志:</strong> ${logLink}<br>
+      <strong>耗时:</strong> ${formatDuration(phase.duration_seconds) || '--'}<br>
+      ${buildSpansHtml(phase.spans)}
       <strong>摘要:</strong> ${phase.summary || '无'}
     </div>
     <div class="detail-principles">${principles}${principleDetail}</div>
@@ -402,12 +426,14 @@ function buildParallelDetail(phase) {
       <div class="reviewer-card">
         <h5>${agent.perspective}</h5>
         <span class="status-badge ${agent.status}">${agent.verdict || agent.status}</span>
+        <div class="reviewer-duration">${formatDuration(agent.duration_seconds) || '--'}</div>
         <div class="reviewer-stats">
           <span>C:${stats.critical || 0}</span>
           <span>H:${stats.high || 0}</span>
           <span>M:${stats.medium || 0}</span>
           <span>L:${stats.low || 0}</span>
         </div>
+        ${buildSpansHtml(agent.spans)}
         <div style="margin-top:6px">
           <a class="file-link" data-path="${state.data.requirement_dir}/${agent.log_file}" href="#">${agent.log_file}</a>
         </div>
@@ -438,6 +464,16 @@ function buildParallelDetail(phase) {
     ${iterations ? `<div class="iteration-info">修正循环: ${iterations}</div>` : ''}
     <div class="detail-principles" style="margin-top:12px">${principles}${principleDetail}</div>
   `;
+}
+
+function buildSpansHtml(spans) {
+  if (!spans || spans.length <= 1) return '';
+  const items = spans.map(s => {
+    const dur = formatDuration(s.duration_seconds);
+    const endLabel = s.end ? s.end.slice(11, 16) : '进行中';
+    return `<span class="span-tag">${s.label}: ${dur} (${s.start.slice(11, 16)}→${endLabel})</span>`;
+  }).join(' ');
+  return `<div class="spans-row"><strong>执行明细:</strong> ${items}</div>`;
 }
 
 function buildFilePath(filename) {
