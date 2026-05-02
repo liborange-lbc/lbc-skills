@@ -90,17 +90,6 @@ Bash(run_in_background: true):
 → 输出: "Dashboard 已运行: http://localhost:8080"
 ```
 
-### Step 1.5: 终端监控（可选）
-
-```
-# 提示用户可在另一个终端启动 tmux 监控（实时查看子Agent日志）
-→ 输出: "如需实时监控，请在另一个终端执行:
-   bash ${SKILL_DIR}/tools/monitor.sh {需求目录}
-   
-   布局: 执行日志 | 当前Phase日志 | 编排计划/评审报告 | 文件变更
-   快捷键: Ctrl+B d 退出, Ctrl+B n 切换窗口"
-```
-
 ### Step 2: 预加载工具
 
 ```
