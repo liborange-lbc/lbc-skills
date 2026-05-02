@@ -104,10 +104,13 @@ ToolSearch(query: "select:SendMessage")
 1. **纯调度不执行** — 绝不直接编辑代码文件，绝不直接读子Agent产出内容
 2. **Grep提取判定** — 只用 Grep 提取评审报告的 PASS/FAIL + 统计行
 3. **Task驱动** — 每个 Phase 开始前 TaskCreate，完成后 TaskUpdate
-4. **日志记录** — Agent 每个事件追加到 `{需求目录}/log/执行日志.md` 的 `Agent 执行记录` 表
+4. **日志记录** — 通过 `${SKILL_DIR}/tools/log-event.sh` 脚本记录事件（禁止手动 Edit 写入时间）
+   - **调用方式**: `Bash: bash ${SKILL_DIR}/tools/log-event.sh {日志路径} {Phase} {Agent名称} {agentId} {事件} "备注"`
+   - 脚本自动生成精确到秒的时间戳（`YYYY-MM-DD HH:MM:SS`），自动递增序号，自动校验事件枚举
+   - **即时记录**: 启动子Agent后**立即**调用脚本记录「启动」，收到返回后**立即**记录「完成/PASS/FAIL」，禁止延迟批量记录
    - 事件类型只能用枚举值：`启动` | `完成` | `PASS` | `FAIL` | `Resume` | `降级新建`（见 [reference/执行日志规范.md](reference/执行日志规范.md)）
    - Agent名称只能用枚举值（如 "P5-编码工程师"），见执行日志规范 Agent 名称表
-   - **仅追加不修改**，每个事件一行，序号递增；Dashboard 从此表派生所有 Phase 状态
+   - **仅追加不修改**；Dashboard 从此表派生所有 Phase 状态
    - 子 Agent 不关心本表，只聚焦自身业务；主 Agent 负责所有记录
 5. **扩展文档转发** — 启动子Agent时将 EXTENSION_DOCS 对应路径注入 prompt
 6. **AgentID管理** — agentId 记录在执行记录表中，修正循环时从表中 Grep 查找
@@ -176,17 +179,20 @@ ToolSearch(query: "select:SendMessage")
 # Step 2: 从返回结果末尾提取 agentId
 # 返回格式示例: "agentId: af12833733cee1482 (use SendMessage with to: 'af12833733cee1482' to continue)"
 
-# Step 3: 追加「启动」行到 Agent 执行记录
-Edit: 执行日志.md → Agent 执行记录表追加:
-  | {seq} | 2026-05-01 13:44:00 | P5 | P5-编码工程师 | af12833733cee1482 | 启动 | 编码实现 |
+# Step 3:【立即】记录「启动」— 不等 Agent 返回结果
+Bash: bash ${SKILL_DIR}/tools/log-event.sh \
+  "{需求目录}/log/执行日志.md" P5 P5-编码工程师 af12833733cee1482 启动 "编码实现"
 
-# Step 4: Agent 返回结果后，追加「完成」行（评审 Agent 用 PASS/FAIL）
-Edit: 执行日志.md → Agent 执行记录表追加:
-  | {seq} | 2026-05-01 13:45:20 | P5 | P5-编码工程师 | af12833733cee1482 | 完成 | 修改 app.js + style.css |
+# Step 4: Agent 返回结果后，【立即】记录「完成」（评审 Agent 用 PASS/FAIL）
+Bash: bash ${SKILL_DIR}/tools/log-event.sh \
+  "{需求目录}/log/执行日志.md" P5 P5-编码工程师 af12833733cee1482 完成 "修改 app.js + style.css"
 
 # Step 5: 确认 SendMessage 工具可用（首次时）
 调用工具: ToolSearch(query: "select:SendMessage")
 ```
+
+> **禁止**: 用 Edit 手写时间戳；等多个事件完成后再批量记录。
+> **必须**: 每个事件发生时立即调用 log-event.sh，确保时间戳反映真实执行时刻。
 
 #### 修正循环 — Resume 同一子Agent（关键路径）
 
@@ -201,9 +207,9 @@ Grep: 执行日志.md 中 "P3-系分设计师" → 提取 agentId
 # Step 2: Grep 提取评审问题摘要（不读全文）
 Grep: log/phase4-评审-*.md 中 "CRITICAL\|HIGH" 行 → 汇总问题列表
 
-# Step 3: 追加「Resume」行 + Resume designer
-Edit: 执行日志.md → Agent 执行记录表追加:
-  | {seq} | {time} | P3 | P3-系分设计师 | {agentId} | Resume | P4评审FAIL，修复系分 |
+# Step 3:【立即】记录「Resume」→ 然后 Resume designer
+Bash: bash ${SKILL_DIR}/tools/log-event.sh \
+  "{需求目录}/log/执行日志.md" P3 P3-系分设计师 {agentId} Resume "P4评审FAIL，修复系分"
 调用工具: SendMessage(
   to: "{agentId}",
   message: "P4 评审发现以下问题需要修复:
@@ -212,17 +218,17 @@ Edit: 执行日志.md → Agent 执行记录表追加:
     请逐条修复后更新系分文档，完成后告知。"
 )
 
-# Step 4: 修复完成后追加「完成」行
-Edit: 执行日志.md → Agent 执行记录表追加:
-  | {seq} | {time} | P3 | P3-系分设计师 | {agentId} | 完成 | 修复完成 |
+# Step 4: 修复完成后【立即】记录「完成」
+Bash: bash ${SKILL_DIR}/tools/log-event.sh \
+  "{需求目录}/log/执行日志.md" P3 P3-系分设计师 {agentId} 完成 "修复完成"
 
-# Step 5: Resume reviewers 复审（每个追加「Resume」行 + 完成后追加「PASS/FAIL」行）
-Edit: 执行日志.md → Agent 执行记录表追加:
-  | {seq} | {time} | P4 | P4-需求完整度评审员 | {reviewer_agentId} | Resume | 复审 |
+# Step 5: Resume reviewers 复审（每个事件立即记录）
+Bash: bash ${SKILL_DIR}/tools/log-event.sh \
+  "{需求目录}/log/执行日志.md" P4 P4-需求完整度评审员 {reviewer_agentId} Resume "复审"
 调用工具: SendMessage(to: "{reviewer_agentId}", message: "designer 已修复问题，请重新评审...")
-# 复审完成后:
-Edit: 执行日志.md → Agent 执行记录表追加:
-  | {seq} | {time} | P4 | P4-需求完整度评审员 | {reviewer_agentId} | PASS | 复审 0C/0H/0M/0L |
+# 复审完成后【立即】记录:
+Bash: bash ${SKILL_DIR}/tools/log-event.sh \
+  "{需求目录}/log/执行日志.md" P4 P4-需求完整度评审员 {reviewer_agentId} PASS "复审 0C/0H/0M/0L"
 
 # ═══ P6 FAIL → Resume coder 修复代码 ═══
 # 流程同上，将 P3/designer 替换为 P5/coder，P4/reviewer 替换为 P6/reviewer
@@ -282,11 +288,10 @@ Phase 4（3个评审）和 Phase 6（3个CR）用 `Agent(run_in_background: true
   Agent(description: "P4 perf-reviewer", run_in_background: true, prompt: "...")
   Agent(description: "P4 req-reviewer", run_in_background: true, prompt: "...")
 
-# Step 2: 提取 agentId，追加 3 个「启动」行
-Edit: 执行日志.md → Agent 执行记录表追加:
-  | {seq}   | {time} | P4 | P4-架构评审员     | {agentId1} | 启动 | 架构评审 |
-  | {seq+1} | {time} | P4 | P4-性能评审员     | {agentId2} | 启动 | 性能评审 |
-  | {seq+2} | {time} | P4 | P4-需求完整度评审员 | {agentId3} | 启动 | 需求完整度评审 |
+# Step 2: 提取 agentId，【立即】逐个记录「启动」（每个 Agent 启动后立即调用脚本）
+Bash: bash ${SKILL_DIR}/tools/log-event.sh "{需求目录}/log/执行日志.md" P4 P4-架构评审员 {agentId1} 启动 "架构评审"
+Bash: bash ${SKILL_DIR}/tools/log-event.sh "{需求目录}/log/执行日志.md" P4 P4-性能评审员 {agentId2} 启动 "性能评审"
+Bash: bash ${SKILL_DIR}/tools/log-event.sh "{需求目录}/log/执行日志.md" P4 P4-需求完整度评审员 {agentId3} 启动 "需求完整度评审"
 
 # Step 3: 等待所有完成通知（自动通知，不需要轮询）
 
@@ -295,11 +300,10 @@ Grep: log/phase4-评审-架构.md → "## 判定" 行
 Grep: log/phase4-评审-性能.md → "## 判定" 行
 Grep: log/phase4-评审-需求完整度.md → "## 判定" 行
 
-# Step 5: 逐个追加「PASS」或「FAIL」行
-Edit: 执行日志.md → Agent 执行记录表追加:
-  | {seq} | {time} | P4 | P4-架构评审员     | {agentId1} | PASS | 0C/0H/2M/1L |
-  | {seq} | {time} | P4 | P4-性能评审员     | {agentId2} | PASS | 0C/0H/0M/1L |
-  | {seq} | {time} | P4 | P4-需求完整度评审员 | {agentId3} | FAIL | 1C/0H/0M/0L |
+# Step 5: 每个 Agent 返回后【立即】记录 PASS/FAIL（不等全部完成再批量写入）
+Bash: bash ${SKILL_DIR}/tools/log-event.sh "{需求目录}/log/执行日志.md" P4 P4-架构评审员 {agentId1} PASS "0C/0H/2M/1L"
+Bash: bash ${SKILL_DIR}/tools/log-event.sh "{需求目录}/log/执行日志.md" P4 P4-性能评审员 {agentId2} PASS "0C/0H/0M/1L"
+Bash: bash ${SKILL_DIR}/tools/log-event.sh "{需求目录}/log/执行日志.md" P4 P4-需求完整度评审员 {agentId3} FAIL "1C/0H/0M/0L"
 ```
 
 ---
