@@ -69,8 +69,8 @@ PHASE_CONFIG = [
         "id": "P5", "name": "编码", "agent": "coder",
         "display_name": "P5-编码工程师",
         "log_file": "phase5-编码.md",
-        "output_files": [],
-        "input_files": ["系分文档.md", "需求追踪矩阵.md"],
+        "output_files": ["log/phase5-编排计划.md"],
+        "input_files": ["系分文档.md", "需求追踪矩阵.md", "经验库.md"],
         "design_principles": ["扩展优于硬编码"],
         "parallel": False
     },
