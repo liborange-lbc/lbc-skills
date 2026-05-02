@@ -202,10 +202,30 @@ class LogScanner:
                 phase["start_time"] = min(all_starts)
             if all_ends:
                 phase["end_time"] = max(all_ends)
-            # spans: 单 agent phase 直接取该 agent 的 spans
+            # spans + coders: 处理单 agent 和多 agent（P5并行coder）
             agent_list = list(agents.values())
             if len(agent_list) == 1:
                 phase["spans"] = agent_list[0].get("spans", [])
+                phase["coders"] = None  # 单 agent 模式，前端走 buildSingleDetail
+            else:
+                # 多 agent: 聚合所有 spans，标注来源
+                all_spans = []
+                for name, info in agents.items():
+                    for span in info.get("spans", []):
+                        short_name = name.replace("P5-编码工程师-", "")
+                        all_spans.append({**span, "label": f"{short_name}: {span['label']}"})
+                phase["spans"] = sorted(all_spans, key=lambda s: s.get("start", ""))
+                # 并行 coder 详情列表（供前端详情面板展示）
+                phase["coders"] = [
+                    {
+                        "name": name,
+                        "module": name.replace("P5-编码工程师-", "").replace("P5-编码工程师", "default"),
+                        "status": info["status"],
+                        "duration_seconds": info.get("duration_seconds"),
+                        "spans": info.get("spans", []),
+                    }
+                    for name, info in agents.items()
+                ]
 
         # 详情: 从 log 文件读取摘要
         if config["log_file"]:

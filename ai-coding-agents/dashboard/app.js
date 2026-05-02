@@ -338,6 +338,8 @@ function renderDetailPanel(phase) {
 
   if (phase.parallel && phase.agents) {
     panel.innerHTML = buildParallelDetail(phase);
+  } else if (phase.coders && phase.coders.length > 1) {
+    panel.innerHTML = buildCoderDetail(phase);
   } else {
     panel.innerHTML = buildSingleDetail(phase);
   }
@@ -396,6 +398,50 @@ function buildSingleDetail(phase) {
       <strong>耗时:</strong> ${formatDuration(phase.duration_seconds) || '--'}<br>
       ${buildSpansHtml(phase.spans)}
       <strong>摘要:</strong> ${phase.summary || '无'}
+    </div>
+    <div class="detail-principles">${principles}${principleDetail}</div>
+  `;
+}
+
+function buildCoderDetail(phase) {
+  // P5 并行 coder 详情面板
+  const coderCards = (phase.coders || []).map(coder => {
+    return `
+      <div class="reviewer-card">
+        <h5>${coder.module}</h5>
+        <span class="status-badge ${coder.status}">${coder.status}</span>
+        <div class="reviewer-duration">${formatDuration(coder.duration_seconds) || '--'}</div>
+        ${buildSpansHtml(coder.spans)}
+      </div>
+    `;
+  }).join('');
+
+  const logLink = phase.log_file
+    ? `<a class="file-link" data-path="${state.data.requirement_dir}/${phase.log_file}" href="#">${phase.log_file}</a>`
+    : '--';
+
+  const planLink = `<a class="file-link" data-path="${state.data.requirement_dir}/log/phase5-编排计划.md" href="#">编排计划</a>`;
+
+  const principles = (phase.design_principles || []).map(p =>
+    `<span class="principle-tag">${p}</span>`
+  ).join('');
+
+  const principleDetail = DESIGN_PRINCIPLES_MAP[phase.id]
+    ? `<div class="principle-desc"><strong>${DESIGN_PRINCIPLES_MAP[phase.id].label}:</strong> ${DESIGN_PRINCIPLES_MAP[phase.id].desc}</div>`
+    : '';
+
+  return `
+    <div class="detail-header">
+      <h3>${phase.id} ${phase.name} — 并行编码</h3>
+      <span class="status-badge ${phase.status}">${phase.status}</span>
+      <span style="font-size:12px;color:#57606a">${phase.coders.length} 个 coder</span>
+    </div>
+    <div class="reviewers-grid">${coderCards}</div>
+    <div class="detail-summary">
+      <strong>编排计划:</strong> ${planLink}<br>
+      <strong>编码日志:</strong> ${logLink}<br>
+      <strong>总耗时:</strong> ${formatDuration(phase.duration_seconds) || '--'}<br>
+      ${buildSpansHtml(phase.spans)}
     </div>
     <div class="detail-principles">${principles}${principleDetail}</div>
   `;

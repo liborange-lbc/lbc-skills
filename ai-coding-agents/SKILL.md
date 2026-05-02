@@ -152,10 +152,10 @@ ToolSearch(query: "select:SendMessage")
 |-------|---------|----------------|
 | P1 | phase01-需求访谈员/需求面试清单.md | 无 |
 | P2 | phase02-知识采集员/代码阅读指南.md | 知识查阅规则.md |
-| P3 | phase03-系分设计师/系分编写执行指南.md | 架构约束.md + 设计文档模板.md |
+| P3 | phase03-系分设计师/系分编写执行指南.md | 架构约束.md + 设计文档模板.md + references/db.md |
 | P4 | phase04-系分评审员/系分评审执行指南.md | 评审检查清单.md（对应角色章节）+ 架构约束.md（仅design-reviewer） |
-| P5 | phase05-编码工程师/编码实现指南.md | 无 |
-| P6 | phase06-代码评审员/代码评审执行指南.md | 评审检查清单.md（对应角色章节） |
+| P5 | phase05-编码工程师/编码实现指南.md | references/ 下规范按需加载（不全量注入）+ examples/ |
+| P6 | phase06-代码评审员/代码评审执行指南.md | references/（含 checklist + script + templates）|
 | P7 | phase07-测试工程师/测试验证指南.md | 无 |
 
 ### Agent 生命周期管理
@@ -360,13 +360,21 @@ interviewer    collector      designer      3×reviewer    Resume designer
 **挂载**: EXTENSION_DOCS.design  
 **产出**: `系分文档.md` + `需求追踪矩阵.md`
 
-1. **先出骨架** — designer 生成章节标题后返回主Agent，主Agent转交用户确认
-2. **用户确认后** — 主Agent Resume designer 继续填充
-3. **需求-设计映射** — 每条需求对应设计章节、接口、数据变更
-4. **填充内容** — 遵循架构约束，保存文档
+按 **9 步设计流程** 推进，每步确认后再进入下一步：
+
+1. **需求与范围澄清** — 提炼核心功能、约束、排除范围
+2. **架构与模块划分** — 功能架构 + 集成架构 + 部署架构（同城双机房、无单点），生成骨架后返回主Agent，主Agent转交用户确认
+3. **数据模型与存储** — 遵循数据库设计规范，版本兼容性设计
+4. **接口设计** — oneapi/对外/内部/依赖服务接口，兼容性设计
+5. **功能模块设计** — 逐模块深入分析，时序图 + 状态图
+6. **非功能性需求设计** — 稳定性/高可用/安全/性能/扩展性
+7. **变更三板斧** — 可监控/可灰度/可应急
+8. **产出设计文档** — 按模板整理 + 需求追踪矩阵
+9. **方案检查** — 架构/接口/数据库/安全/三板斧全面自检
 
 架构约束 → [subagent/phase03-系分设计师/架构约束.md](subagent/phase03-系分设计师/架构约束.md)  
-文档模板 → [subagent/phase03-系分设计师/设计文档模板.md](subagent/phase03-系分设计师/设计文档模板.md)
+文档模板 → [subagent/phase03-系分设计师/设计文档模板.md](subagent/phase03-系分设计师/设计文档模板.md)  
+数据库规范 → [subagent/phase03-系分设计师/references/db.md](subagent/phase03-系分设计师/references/db.md)
 
 ---
 
@@ -395,10 +403,21 @@ interviewer    collector      designer      3×reviewer    Resume designer
 
 ## Phase 5: 编码实现
 
-**执行者**: coder 子Agent（可 Resume）  
+**执行者**: 1~N 个 coder 子Agent（按模块依赖分层并行，可 Resume）  
 **挂载**: EXTENSION_DOCS.coding
 
-按 BATCH_SIZE 分批实现，每条需求对应至少一个测试。
+**主Agent编排**（启动 coder 前执行）：
+1. **依赖分析** — 从系分文档提取模块间调用关系、外键关系、公共代码依赖
+2. **拓扑排序分层** — Layer -1(公共) → Layer 0(无依赖) → Layer 1(依赖L0) → ...
+3. **按层级并行启动 coder** — 同层模块并行，跨层串行等待
+4. 编排计划写入 `log/phase5-编排计划.md`
+
+**每个 coder 执行 5 阶段工作流**（READ→TEST→IMPL→CHECK→DOCS）：
+1. **READ** — 读取系分方案 + 按需加载规范（references/ 下 antdigital/antgroup/基础Java 规范）
+2. **TEST** — TDD，先生成单测再实现（AAA 模式）
+3. **IMPL** — 按 Entity→Mapper→Service→Controller 顺序实现
+4. **CHECK** — L1 静态检查 + L2 动态验证（mvn compile/test）
+5. **DOCS** — 同步更新架构文档 + 模块文档
 
 详细指南 → [subagent/phase05-编码工程师/编码实现指南.md](subagent/phase05-编码工程师/编码实现指南.md)
 
@@ -406,18 +425,20 @@ interviewer    collector      designer      3×reviewer    Resume designer
 
 ## Phase 6: 代码 CR
 
-**执行者**: 3个并行 reviewer 子Agent  
+**执行者**: 3个并行 reviewer 子Agent（SDD 模式结构化审查）  
 **挂载**: EXTENSION_DOCS.review + EXTENSION_DOCS.coding
 
-| Agent | 视角 | 详细checklist |
-|-------|------|--------------|
-| code-quality-reviewer | 代码质量 | [reference/评审检查清单.md](reference/评审检查清单.md) §代码-质量 |
-| code-security-reviewer | 安全漏洞 | 同上 §代码-安全 |
-| **code-req-reviewer** | **需求实现完整度** | 同上 §需求实现度 — 逐条在代码中验证 |
+| Agent | 视角 | 检查维度 | 详细checklist |
+|-------|------|---------|--------------|
+| code-quality-reviewer | 代码质量 | 可读性(A1-A7) + 可靠性(军规) + Bug模式(B/M/I) + 自定义 | [references/readability-checklist.md](subagent/phase06-代码评审员/references/readability-checklist.md) + [reliability-checklist.md](subagent/phase06-代码评审员/references/reliability-checklist.md) + [bug-pattern-checklist.md](subagent/phase06-代码评审员/references/bug-pattern-checklist.md) |
+| code-security-reviewer | 安全漏洞 | 安全 + Bug模式(安全类) | [security-checklist.md](subagent/phase06-代码评审员/references/security-checklist.md) + [bug-pattern-checklist.md](subagent/phase06-代码评审员/references/bug-pattern-checklist.md) |
+| **code-req-reviewer** | **需求实现完整度** | 功能性检查(REQ核对) + 证据约束 | 逐条在代码中验证，P0 须同时给出 spec 证据 + 代码证据 |
 
-**Pass Criteria**: 0 CRITICAL + 0 HIGH + 需求实现100%  
+**执行流程**: GitNexus 影响面扩展审查范围 → `scan-all-rules.sh` 自动化预扫（52/222条可程序化规则）→ LLM 逐文件补全。严重性等级：P0(CRITICAL) / P1(HIGH) / P2(MEDIUM)。
+
+**Pass Criteria**: 0 P0/CRITICAL + 0 P1/HIGH + 需求实现100%  
 **FAIL 时主Agent必须执行**:
-1. Grep 提取 CRITICAL/HIGH 问题列表（含文件:行号）
+1. Grep 提取 CRITICAL/HIGH 问题列表（含文件:行号 + 规则ID）
 2. `SendMessage(to: "{coder_agentId}")` — Resume coder 修复代码（参见 §主Agent行为准则-修正循环）
 3. coder 修复完成后 `SendMessage(to: "{cr_reviewer_agentId}")` — Resume CR reviewers 复审
 4. 复审结果写入 `log/phase6-CR-{视角}-复审.md`
